@@ -10,7 +10,7 @@ import { ContactInfoScreen } from "./screens/contact-info-screen"
 import { PaymentScreen } from "./screens/payment-screen"
 import { CompletionScreen } from "./screens/completion-screen"
 import { StatusDashboard } from "./screens/status-dashboard"
-import { Calendar, Clock, ChevronRight, CheckCircle2, ShieldCheck, Info } from "lucide-react"
+import { Calendar, Clock, ChevronRight, CheckCircle2, Info } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 export interface BookingData {
@@ -101,7 +101,16 @@ export function TravelerFlow({ onBack, initialStep }: TravelerFlowProps) {
   
   const DeliveryDateScreen = () => {
     const destName = data.destination.name || "your destination"
-    const expectedArrivalLabel = "Scheduled to arrive before 12:00"
+    const timeSlots = [
+      "8:00 - 12:00",
+      "14:00 - 16:00",
+      "16:00 - 18:00",
+      "18:00 - 20:00",
+      "19:00 - 21:00",
+    ]
+    const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>(
+      data.deliveryDate.expectedArrival ?? timeSlots[0]
+    )
     const deliveryOptions = useMemo(() => {
       const today = new Date()
       today.setHours(0, 0, 0, 0)
@@ -199,26 +208,37 @@ export function TravelerFlow({ onBack, initialStep }: TravelerFlowProps) {
           </div>
 
           {}
-          <div className="space-y-4">
-            <div className="p-4 rounded-2xl border bg-card flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-muted rounded-full">
-                  <Clock className="w-5 h-5" />
-                </div>
-                <div>
-                  <p className="font-bold text-sm">Scheduled to arrive before 12:00</p>
-                  <p className="text-[10px] text-muted-foreground">Assigned automatically by system</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-3 rounded-xl bg-muted/30 border border-dashed flex items-center gap-3">
-              <ShieldCheck className="w-5 h-5 text-muted-foreground" />
-              <p className="text-[10px] text-muted-foreground">
-                Flight time must be after <span className="font-bold text-foreground">14:00</span> on the
-                delivery date.
-              </p>
-            </div>
+          <div className="space-y-3">
+            <p className="text-xs font-black uppercase tracking-widest text-muted-foreground pl-1">
+              Delivery time
+            </p>
+            {timeSlots.map((slot) => {
+              const isSelected = selectedTimeSlot === slot
+              return (
+                <button
+                  key={slot}
+                  type="button"
+                  onClick={() => setSelectedTimeSlot(slot)}
+                  className={`w-full p-4 rounded-2xl border-2 transition-all text-left flex items-center justify-between ${
+                    isSelected ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary/50"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-muted rounded-full">
+                      <Clock className="w-4 h-4" />
+                    </div>
+                    <span className={`font-bold text-sm ${isSelected ? "text-foreground" : "text-muted-foreground/80"}`}>
+                      {slot}
+                    </span>
+                  </div>
+                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                    isSelected ? "border-primary" : "border-border"
+                  }`}>
+                    {isSelected && <div className="w-2.5 h-2.5 rounded-full bg-primary" />}
+                  </div>
+                </button>
+              )
+            })}
           </div>
 
           {}
@@ -255,7 +275,7 @@ export function TravelerFlow({ onBack, initialStep }: TravelerFlowProps) {
                   ...data.deliveryDate,
                   earliest: earliestLabel,
                   selected: selectedDate,
-                  expectedArrival: expectedArrivalLabel,
+                  expectedArrival: selectedTimeSlot,
                 },
               })
               setStep(3)
