@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { ArrowLeft, CalendarDays, Zap, Clock, Plane, Building2, ShieldCheck, Bell, Info } from "lucide-react"
+import { ArrowLeft, CalendarDays, Zap, Clock, Building2, ShieldCheck, Bell, Info } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import type { BookingData } from "../traveler-flow"
 
@@ -13,10 +13,6 @@ interface DeliveryDateScreenProps {
 }
 
 export function DeliveryDateScreen({ data, onUpdate, onNext, onBack }: DeliveryDateScreenProps) {
-  const isAirport = data.destination.type === "airport"
-  const isDepot = data.destination.type === "depot" || data.destination.type === "station"
-  const isTimeSensitive = isAirport || isDepot
-
   const { earliestDate, availableDates } = useMemo(() => {
     const today = new Date()
     const earliest = new Date(today)
@@ -33,10 +29,22 @@ export function DeliveryDateScreen({ data, onUpdate, onNext, onBack }: DeliveryD
     return { earliestDate: earliest, availableDates: dates }
   }, [])
 
+  const timeSlots = [
+    { label: "8:00 - 12:00" },
+    { label: "14:00 - 16:00" },
+    { label: "16:00 - 18:00" },
+    { label: "18:00 - 20:00" },
+    { label: "19:00 - 21:00" },
+  ]
+
   const [selectedDate, setSelectedDate] = useState<Date>(
-    data.deliveryDate.selected 
-      ? new Date(data.deliveryDate.selected) 
+    data.deliveryDate.selected
+      ? new Date(data.deliveryDate.selected)
       : earliestDate
+  )
+
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>(
+    data.deliveryDate.expectedArrival ?? timeSlots[0].label
   )
 
   const formatDate = (date: Date) => {
@@ -55,20 +63,13 @@ export function DeliveryDateScreen({ data, onUpdate, onNext, onBack }: DeliveryD
     return formatDateISO(date) === formatDateISO(earliestDate)
   }
 
-  
-  const systemSchedule = useMemo(() => {
-    if (isAirport) return "Scheduled to arrive before 12:00"
-    if (isDepot) return "Scheduled to arrive before 14:00"
-    return "Delivery time assigned automatically based on carrier schedule"
-  }, [isAirport, isDepot])
-
   const handleContinue = () => {
     onUpdate({
       ...data,
       deliveryDate: {
         earliest: formatDateISO(earliestDate),
         selected: formatDateISO(selectedDate),
-        expectedArrival: systemSchedule,
+        expectedArrival: selectedTimeSlot,
       },
     })
     onNext()
@@ -154,28 +155,35 @@ export function DeliveryDateScreen({ data, onUpdate, onNext, onBack }: DeliveryD
         {}
         <div className="space-y-2">
           <p className="text-sm font-medium text-foreground">Delivery time</p>
-          <div className="p-4 rounded-lg border border-border bg-card">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
-                <Clock className="w-5 h-5 text-foreground" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-foreground">{systemSchedule}</p>
-                <p className="text-xs text-muted-foreground">Assigned automatically by system</p>
-              </div>
-            </div>
+          <div className="grid grid-cols-1 gap-2">
+            {timeSlots.map((slot) => {
+              const isSelected = selectedTimeSlot === slot.label
+              return (
+                <button
+                  key={slot.label}
+                  onClick={() => setSelectedTimeSlot(slot.label)}
+                  className={`w-full p-3 rounded-lg border-2 transition-all text-left flex items-center justify-between ${
+                    isSelected
+                      ? "border-foreground bg-foreground text-background"
+                      : "border-border bg-card hover:border-foreground/50"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Clock className={`w-4 h-4 ${isSelected ? "text-background" : "text-muted-foreground"}`} />
+                    <span className={`text-sm font-medium ${isSelected ? "text-background" : "text-foreground"}`}>
+                      {slot.label}
+                    </span>
+                  </div>
+                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                    isSelected ? "border-background bg-background" : "border-border"
+                  }`}>
+                    {isSelected && <div className="w-2 h-2 rounded-full bg-foreground" />}
+                  </div>
+                </button>
+              )
+            })}
           </div>
         </div>
-
-        {}
-        {isAirport && (
-          <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50 border border-border">
-            <Plane className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
-            <p className="text-sm text-muted-foreground">
-              Flight time must be after <span className="font-medium text-foreground">14:00</span> on the delivery date.
-            </p>
-          </div>
-        )}
 
         {}
         {data.destination.type === "hotel" && (
