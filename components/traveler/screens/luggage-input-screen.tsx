@@ -84,18 +84,21 @@ const SIZE_INFO: Record<Size, {
   },
 }
 
-function estimateSizeFromPhoto(_photoUrl: string): { size: Size; confidence: number } {
-  const sizes: Size[] = ["S", "M", "L", "LL"]
-  const weights = [0.2, 0.45, 0.25, 0.1]
-  const rand = Math.random()
-  let cumulative = 0
-  for (let i = 0; i < sizes.length; i++) {
-    cumulative += weights[i]
-    if (rand <= cumulative) {
-      return { size: sizes[i], confidence: 0.7 + Math.random() * 0.25 }
-    }
+async function estimateSizeFromPhoto(dataUrl: string): Promise<{ size: Size; confidence: number }> {
+  try {
+    const [header, base64] = dataUrl.split(",")
+    const mediaType = header.match(/data:(image\/\w+);/)?.[1] ?? "image/jpeg"
+    const res = await fetch("/api/analyze-luggage", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ imageBase64: base64, mediaType }),
+    })
+    const json = await res.json()
+    if (json.size) return { size: json.size as Size, confidence: json.confidence ?? 0.8 }
+  } catch {
+    // fall through to default
   }
-  return { size: "M", confidence: 0.8 }
+  return { size: "M", confidence: 0.5 }
 }
 
 const PROHIBITED_ITEMS = [
@@ -182,7 +185,7 @@ export function LuggageInputScreen({ data, onUpdate, onNext, onBack }: LuggageIn
       }
 
       if (isFirstPhoto) {
-        const estimation = estimateSizeFromPhoto(dataUrl)
+        const estimation = await estimateSizeFromPhoto(dataUrl)
         updateItem(itemId, {
           photos: newPhotos,
           size: estimation.size,
