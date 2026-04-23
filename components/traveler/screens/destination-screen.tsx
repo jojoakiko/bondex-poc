@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useMemo, useRef } from "react"
+import { useEffect, useState, useMemo, useRef, useCallback } from "react"
 import { 
   ArrowLeft, MapPin, Search, User, AlertTriangle,
   ArrowRight, CheckCircle2, X, Clock,
@@ -60,11 +60,110 @@ export function DestinationScreen({ data, onUpdate, onNext, onBack }: Destinatio
   const [isChangingPickup, setIsChangingPickup] = useState(false)
   const [pickupLocation, setPickupLocation] = useState<FacilityRecord>(() => initialPickupFacility(data))
   const [pickupQuery, setPickupQuery] = useState("")
+  const [pickupPredictions, setPickupPredictions] = useState<{ place_id: string; name: string; secondary: string }[]>([])
+  const [pickupLoading, setPickupLoading] = useState(false)
+  const pickupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const [selectedFacility, setSelectedFacility] = useState<FacilityRecord | null>(() =>
     data.destination.facility ?? null
   )
   const [searchQuery, setSearchQuery] = useState(data.destination.name || "")
+  const [predictions, setPredictions] = useState<{ place_id: string; name: string; secondary: string }[]>([])
+  const [placesLoading, setPlacesLoading] = useState(false)
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const searchPlaces = useCallback((q: string) => {
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
+    if (!q) { setPredictions([]); return }
+    searchTimerRef.current = setTimeout(async () => {
+      setPlacesLoading(true)
+      try {
+        const res = await fetch(`/api/places?q=${encodeURIComponent(q)}`)
+        const data = await res.json()
+        setPredictions(data.predictions ?? [])
+      } catch {
+        setPredictions([])
+      } finally {
+        setPlacesLoading(false)
+      }
+    }, 300)
+  }, [])
+
+  const selectPlace = useCallback(async (placeId: string, placeName: string) => {
+    setSearchQuery(placeName)
+    setPredictions([])
+    try {
+      const res = await fetch(`/api/places?place_id=${placeId}`)
+      const detail = await res.json()
+      const facility: FacilityRecord = {
+        id: detail.id,
+        name: detail.name,
+        destType: "hotel",
+        full_name: detail.name,
+        company: detail.name,
+        email: "",
+        phone: "",
+        country: "JP",
+        zip: detail.zip ?? "",
+        province: detail.province ?? "",
+        city: detail.city ?? "",
+        address1: detail.address1 ?? "",
+        address2: "",
+        extra: "",
+      }
+      setSelectedFacility(facility)
+    } catch {
+      setSelectedFacility(null)
+    }
+  }, [])
+
+  const searchPickupPlaces = useCallback((q: string) => {
+    if (pickupTimerRef.current) clearTimeout(pickupTimerRef.current)
+    if (!q) { setPickupPredictions([]); return }
+    pickupTimerRef.current = setTimeout(async () => {
+      setPickupLoading(true)
+      try {
+        const res = await fetch(`/api/places?q=${encodeURIComponent(q)}`)
+        const json = await res.json()
+        setPickupPredictions(json.predictions ?? [])
+      } catch {
+        setPickupPredictions([])
+      } finally {
+        setPickupLoading(false)
+      }
+    }, 300)
+  }, [])
+
+  const selectPickupPlace = useCallback(async (placeId: string, placeName: string) => {
+    setPickupQuery(placeName)
+    setPickupPredictions([])
+    try {
+      const res = await fetch(`/api/places?place_id=${placeId}`)
+      const detail = await res.json()
+      const facility: FacilityRecord = {
+        id: detail.id,
+        name: detail.name,
+        destType: "hotel",
+        full_name: detail.name,
+        company: detail.name,
+        email: "",
+        phone: "",
+        country: "JP",
+        zip: detail.zip ?? "",
+        province: detail.province ?? "",
+        city: detail.city ?? "",
+        address1: detail.address1 ?? "",
+        address2: "",
+        extra: "",
+      }
+      setPickupLocation(facility)
+      setIsChangingPickup(false)
+      setPickupConfirmed(true)
+    } catch {
+      // ignore
+    }
+  }, [])
+
   const [arrivalDate, setArrivalDate] = useState(data.destination.checkInDate || "")
   const [arrivalTime, setArrivalTime] = useState("") 
   const [bookingName, setBookingName] = useState(data.destination.bookingName || "")
@@ -196,14 +295,34 @@ export function DestinationScreen({ data, onUpdate, onNext, onBack }: Destinatio
               </div>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input autoFocus placeholder="Enter hotel name..." className="pl-9 h-12 rounded-xl border-primary" value={pickupQuery} onChange={(e) => setPickupQuery(e.target.value)} />
-              </div>
-              <div className="max-h-40 overflow-auto border rounded-xl bg-background shadow-inner">
-                {MOCK_FACILITIES.filter(f => f.destType === "hotel" && f.name.toLowerCase().includes(pickupQuery.toLowerCase())).map(f => (
-                  <button key={f.id} onClick={() => {setPickupLocation(f); setIsChangingPickup(false); setPickupConfirmed(true);}} className="w-full p-3 text-left hover:bg-primary/5 border-b last:border-0 text-sm font-medium">
-                    {f.name}
-                  </button>
-                ))}
+                <Input
+                  autoFocus
+                  placeholder="Enter hotel name..."
+                  className="pl-9 h-12 rounded-xl border-primary"
+                  value={pickupQuery}
+                  onChange={(e) => {
+                    setPickupQuery(e.target.value)
+                    searchPickupPlaces(e.target.value)
+                  }}
+                />
+                {pickupPredictions.length > 0 && (
+                  <div className="absolute top-full w-full mt-1 border rounded-xl bg-white z-30 shadow-2xl overflow-hidden">
+                    {pickupLoading ? (
+                      <div className="p-4 text-sm text-muted-foreground text-center">Searching...</div>
+                    ) : (
+                      pickupPredictions.map((p) => (
+                        <button
+                          key={p.place_id}
+                          onClick={() => selectPickupPlace(p.place_id, p.name)}
+                          className="w-full p-4 text-left hover:bg-muted border-b last:border-0"
+                        >
+                          <p className="font-bold text-sm">{p.name}</p>
+                          <p className="text-xs text-muted-foreground">{p.secondary}</p>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -215,12 +334,32 @@ export function DestinationScreen({ data, onUpdate, onNext, onBack }: Destinatio
             <div className="space-y-4">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input placeholder="Where to?" className="pl-9 h-14 rounded-2xl shadow-sm focus:ring-primary" value={searchQuery} onChange={(e) => {setSearchQuery(e.target.value); setSelectedFacility(null);}} />
-                {!selectedFacility && searchQuery && (
+                <Input
+                  placeholder="Where to?"
+                  className="pl-9 h-14 rounded-2xl shadow-sm focus:ring-primary"
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value)
+                    setSelectedFacility(null)
+                    searchPlaces(e.target.value)
+                  }}
+                />
+                {!selectedFacility && predictions.length > 0 && (
                   <div className="absolute top-full w-full mt-1 border rounded-xl bg-white z-30 shadow-2xl overflow-hidden">
-                    {MOCK_FACILITIES.filter(f => f.name.toLowerCase().includes(searchQuery.toLowerCase())).map(f => (
-                      <button key={f.id} onClick={() => {setSelectedFacility(f); setSearchQuery(f.name);}} className="w-full p-4 text-left hover:bg-muted border-b last:border-0 font-bold text-sm">{f.name}</button>
-                    ))}
+                    {placesLoading ? (
+                      <div className="p-4 text-sm text-muted-foreground text-center">Searching...</div>
+                    ) : (
+                      predictions.map((p) => (
+                        <button
+                          key={p.place_id}
+                          onClick={() => selectPlace(p.place_id, p.name)}
+                          className="w-full p-4 text-left hover:bg-muted border-b last:border-0"
+                        >
+                          <p className="font-bold text-sm">{p.name}</p>
+                          <p className="text-xs text-muted-foreground">{p.secondary}</p>
+                        </button>
+                      ))
+                    )}
                   </div>
                 )}
               </div>
