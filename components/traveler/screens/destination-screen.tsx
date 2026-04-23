@@ -292,11 +292,11 @@ export function DestinationScreen({ data, onUpdate, onNext, onBack }: Destinatio
                     }
                   }}
                 />
-                {pickupPredictions.length > 0 && (
+                {(pickupLoading || pickupPredictions.length > 0) && pickupQuery && (
                   <div className="absolute top-full w-full mt-1 border rounded-xl bg-white z-30 shadow-2xl overflow-hidden">
                     {pickupLoading ? (
                       <div className="p-4 text-sm text-muted-foreground text-center">Searching...</div>
-                    ) : (
+                    ) : pickupPredictions.length > 0 ? (
                       pickupPredictions.map((p) => (
                         <button
                           key={p.place_id}
@@ -308,6 +308,8 @@ export function DestinationScreen({ data, onUpdate, onNext, onBack }: Destinatio
                           <p className="text-xs text-muted-foreground">{p.secondary}</p>
                         </button>
                       ))
+                    ) : (
+                      <div className="p-4 text-sm text-muted-foreground text-center">No results found</div>
                     )}
                   </div>
                 )}
