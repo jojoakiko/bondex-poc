@@ -548,12 +548,12 @@ export function LuggageInputScreen({ data, onUpdate, onNext, onBack }: LuggageIn
           <div className="relative bg-white w-full max-w-md rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[92vh]">
 
             {/* Header */}
-            <div className="bg-slate-800 px-6 py-5 flex items-center gap-4 shrink-0">
-              <div className="w-14 h-14 bg-white/15 rounded-2xl flex items-center justify-center shrink-0">
-                <AlertTriangle className="w-8 h-8 text-white" />
+            <div className="bg-red-700 px-6 py-5 flex items-center gap-4 shrink-0">
+              <div className="w-14 h-14 bg-yellow-400 rounded-2xl flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-8 h-8 text-black" />
               </div>
               <div>
-                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">Luggage Guidelines</p>
+                <p className="text-red-300 text-xs font-bold uppercase tracking-widest">Luggage Guidelines</p>
                 <h2 className="text-2xl font-black text-white leading-tight">Before you continue</h2>
               </div>
             </div>
@@ -565,33 +565,33 @@ export function LuggageInputScreen({ data, onUpdate, onNext, onBack }: LuggageIn
               <div className="bg-slate-700 rounded-2xl p-4 text-white">
                 <p className="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">Maximum allowed</p>
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-white/10 rounded-xl p-4 text-center">
+                  <div className="bg-white rounded-xl p-4 text-center">
                     <svg viewBox="0 0 64 64" className="w-12 h-12 mx-auto mb-2" fill="none">
-                      <rect x="12" y="20" width="40" height="34" rx="5" stroke="white" strokeWidth="2.5"/>
-                      <rect x="22" y="12" width="20" height="12" rx="3" stroke="white" strokeWidth="2.5"/>
-                      <line x1="24" y1="24" x2="24" y2="20" stroke="white" strokeWidth="2"/>
-                      <line x1="40" y1="24" x2="40" y2="20" stroke="white" strokeWidth="2"/>
-                      <circle cx="19" cy="56" r="3" stroke="white" strokeWidth="2"/>
-                      <circle cx="45" cy="56" r="3" stroke="white" strokeWidth="2"/>
-                      <line x1="4" y1="20" x2="4" y2="54" stroke="white" strokeWidth="1.5" strokeDasharray="2 2"/>
-                      <polyline points="2,23 4,20 6,23" stroke="white" strokeWidth="1.5" fill="none"/>
-                      <polyline points="2,51 4,54 6,51" stroke="white" strokeWidth="1.5" fill="none"/>
+                      <rect x="12" y="20" width="40" height="34" rx="5" stroke="#1e293b" strokeWidth="2.5"/>
+                      <rect x="22" y="12" width="20" height="12" rx="3" stroke="#1e293b" strokeWidth="2.5"/>
+                      <line x1="24" y1="24" x2="24" y2="20" stroke="#1e293b" strokeWidth="2"/>
+                      <line x1="40" y1="24" x2="40" y2="20" stroke="#1e293b" strokeWidth="2"/>
+                      <circle cx="19" cy="56" r="3" stroke="#1e293b" strokeWidth="2"/>
+                      <circle cx="45" cy="56" r="3" stroke="#1e293b" strokeWidth="2"/>
+                      <line x1="4" y1="20" x2="4" y2="54" stroke="#1e293b" strokeWidth="1.5" strokeDasharray="2 2"/>
+                      <polyline points="2,23 4,20 6,23" stroke="#1e293b" strokeWidth="1.5" fill="none"/>
+                      <polyline points="2,51 4,54 6,51" stroke="#1e293b" strokeWidth="1.5" fill="none"/>
                     </svg>
-                    <p className="text-3xl font-black">200<span className="text-lg">cm</span></p>
-                    <p className="text-slate-400 text-xs mt-1">L + W + H</p>
+                    <p className="text-3xl font-black text-slate-800">200<span className="text-lg">cm</span></p>
+                    <p className="text-slate-500 text-xs mt-1">L + W + H</p>
                   </div>
-                  <div className="bg-white/10 rounded-xl p-4 text-center">
+                  <div className="bg-white rounded-xl p-4 text-center">
                     <svg viewBox="0 0 64 64" className="w-12 h-12 mx-auto mb-2" fill="none">
-                      <line x1="32" y1="8" x2="32" y2="52" stroke="white" strokeWidth="2.5"/>
-                      <line x1="10" y1="22" x2="54" y2="22" stroke="white" strokeWidth="2.5"/>
-                      <ellipse cx="16" cy="32" rx="10" ry="6" stroke="white" strokeWidth="2"/>
-                      <ellipse cx="48" cy="32" rx="10" ry="6" stroke="white" strokeWidth="2"/>
-                      <line x1="10" y1="22" x2="16" y2="32" stroke="white" strokeWidth="1.5"/>
-                      <line x1="54" y1="22" x2="48" y2="32" stroke="white" strokeWidth="1.5"/>
-                      <rect x="28" y="52" width="8" height="4" rx="2" fill="white"/>
+                      <line x1="32" y1="8" x2="32" y2="52" stroke="#1e293b" strokeWidth="2.5"/>
+                      <line x1="10" y1="22" x2="54" y2="22" stroke="#1e293b" strokeWidth="2.5"/>
+                      <ellipse cx="16" cy="32" rx="10" ry="6" stroke="#1e293b" strokeWidth="2"/>
+                      <ellipse cx="48" cy="32" rx="10" ry="6" stroke="#1e293b" strokeWidth="2"/>
+                      <line x1="10" y1="22" x2="16" y2="32" stroke="#1e293b" strokeWidth="1.5"/>
+                      <line x1="54" y1="22" x2="48" y2="32" stroke="#1e293b" strokeWidth="1.5"/>
+                      <rect x="28" y="52" width="8" height="4" rx="2" fill="#1e293b"/>
                     </svg>
-                    <p className="text-3xl font-black">30<span className="text-lg">kg</span></p>
-                    <p className="text-slate-400 text-xs mt-1">per item</p>
+                    <p className="text-3xl font-black text-slate-800">30<span className="text-lg">kg</span></p>
+                    <p className="text-slate-500 text-xs mt-1">per item</p>
                   </div>
                 </div>
               </div>
