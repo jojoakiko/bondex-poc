@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useMemo, useRef, useCallback } from "react"
+import React, { useEffect, useState, useMemo, useRef, useCallback } from "react"
 import { 
   ArrowLeft, MapPin, Search, User, AlertTriangle,
   ArrowRight, CheckCircle2, X, Clock,
@@ -12,26 +12,10 @@ import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
 import {
-  DEFAULT_PICKUP_FACILITY,
-  MOCK_FACILITIES,
-  findFacilityById,
   formatFacilityAddress,
   type FacilityRecord,
 } from "@/lib/facilities-data"
 import type { BookingData } from "../traveler-flow"
-
-function initialPickupFacility(data: BookingData): FacilityRecord {
-  if (data.pickup?.facility) return data.pickup.facility
-  if (data.pickup?.id) {
-    const f = findFacilityById(data.pickup.id)
-    if (f) return f
-  }
-  if (data.pickup?.name) {
-    const hit = MOCK_FACILITIES.find((x) => x.name === data.pickup!.name)
-    if (hit) return hit
-  }
-  return DEFAULT_PICKUP_FACILITY
-}
 
 
 function parseYmdLocal(ymd: string): Date {
@@ -56,9 +40,8 @@ interface DestinationScreenProps {
 
 export function DestinationScreen({ data, onUpdate, onNext, onBack }: DestinationScreenProps) {
   
-  const [pickupConfirmed, setPickupConfirmed] = useState(() => !!data.pickup?.name)
-  const [isChangingPickup, setIsChangingPickup] = useState(false)
-  const [pickupLocation, setPickupLocation] = useState<FacilityRecord>(() => initialPickupFacility(data))
+  const [pickupConfirmed, setPickupConfirmed] = useState(false)
+  const [pickupLocation, setPickupLocation] = useState<FacilityRecord | null>(null)
   const [pickupQuery, setPickupQuery] = useState("")
   const [pickupPredictions, setPickupPredictions] = useState<{ place_id: string; name: string; secondary: string }[]>([])
   const [pickupLoading, setPickupLoading] = useState(false)
@@ -117,22 +100,25 @@ export function DestinationScreen({ data, onUpdate, onNext, onBack }: Destinatio
     }
   }, [])
 
+  const fetchPickupPredictions = useCallback(async (q: string) => {
+    if (!q) { setPickupPredictions([]); return }
+    setPickupLoading(true)
+    try {
+      const res = await fetch(`/api/places?q=${encodeURIComponent(q)}`)
+      const json = await res.json()
+      setPickupPredictions(json.predictions ?? [])
+    } catch {
+      setPickupPredictions([])
+    } finally {
+      setPickupLoading(false)
+    }
+  }, [])
+
   const searchPickupPlaces = useCallback((q: string) => {
     if (pickupTimerRef.current) clearTimeout(pickupTimerRef.current)
     if (!q) { setPickupPredictions([]); return }
-    pickupTimerRef.current = setTimeout(async () => {
-      setPickupLoading(true)
-      try {
-        const res = await fetch(`/api/places?q=${encodeURIComponent(q)}`)
-        const json = await res.json()
-        setPickupPredictions(json.predictions ?? [])
-      } catch {
-        setPickupPredictions([])
-      } finally {
-        setPickupLoading(false)
-      }
-    }, 300)
-  }, [])
+    pickupTimerRef.current = setTimeout(() => fetchPickupPredictions(q), 300)
+  }, [fetchPickupPredictions])
 
   const selectPickupPlace = useCallback(async (placeId: string, placeName: string) => {
     setPickupQuery(placeName)
@@ -157,7 +143,6 @@ export function DestinationScreen({ data, onUpdate, onNext, onBack }: Destinatio
         extra: "",
       }
       setPickupLocation(facility)
-      setIsChangingPickup(false)
       setPickupConfirmed(true)
     } catch {
       // ignore
@@ -232,7 +217,7 @@ export function DestinationScreen({ data, onUpdate, onNext, onBack }: Destinatio
 
   
   const handleContinue = () => {
-    if (!selectedFacility) return
+    if (!selectedFacility || !pickupLocation) return
     onUpdate({
       pickup: {
         id: pickupLocation.id,
@@ -265,34 +250,29 @@ export function DestinationScreen({ data, onUpdate, onNext, onBack }: Destinatio
         
         {}
         <div className={`p-4 rounded-2xl border-2 transition-all ${pickupConfirmed ? "bg-muted/30 border-transparent shadow-none" : "bg-primary/5 border-primary shadow-lg shadow-primary/10"}`}>
-          {!isChangingPickup ? (
+          {pickupConfirmed && pickupLocation ? (
             <div className="flex items-start gap-3">
-              <MapPin className={`w-5 h-5 mt-1 ${pickupConfirmed ? "text-muted-foreground" : "text-primary"}`} />
+              <MapPin className="w-5 h-5 mt-1 text-muted-foreground" />
               <div className="flex-1">
-                <p className="text-[10px] uppercase font-bold text-muted-foreground">Step 1: Pickup Point</p>
+                <p className="text-[10px] uppercase font-bold text-muted-foreground">Pickup Point</p>
                 <p className="font-bold text-base">{pickupLocation.name}</p>
                 <p className="text-xs text-muted-foreground">{formatFacilityAddress(pickupLocation)}</p>
-                
-                {!pickupConfirmed ? (
-                  <div className="mt-4 flex gap-2">
-                    <Button className="flex-1 rounded-xl font-bold shadow-md shadow-primary/20" onClick={() => setPickupConfirmed(true)}>Yes, I'm here</Button>
-                    <button onClick={() => setIsChangingPickup(true)} className="text-[10px] text-muted-foreground underline underline-offset-4 px-2">Not here?</button>
-                  </div>
-                ) : (
-                  <div className="mt-2 flex items-center gap-1.5 text-primary text-xs font-medium">
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>Location confirmed</span>
-                    <button onClick={() => {setPickupConfirmed(false); setIsChangingPickup(true);}} className="ml-auto text-[10px] text-muted-foreground underline">Change</button>
-                  </div>
-                )}
+                <div className="mt-2 flex items-center gap-1.5 text-primary text-xs font-medium">
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Location confirmed</span>
+                  <button
+                    type="button"
+                    onClick={() => { setPickupConfirmed(false); setPickupQuery(""); setPickupPredictions([]) }}
+                    className="ml-auto text-[10px] text-muted-foreground underline"
+                  >
+                    Change
+                  </button>
+                </div>
               </div>
             </div>
           ) : (
-            <div className="space-y-3 animate-in fade-in zoom-in-95">
-              <div className="flex items-center justify-between">
-                <p className="text-[10px] uppercase font-black tracking-widest text-primary">Search Pickup Location</p>
-                <button onClick={() => setIsChangingPickup(false)} className="text-muted-foreground"><X className="w-4 h-4" /></button>
-              </div>
+            <div className="space-y-3">
+              <p className="text-[10px] uppercase font-black tracking-widest text-primary">Search Pickup Location</p>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
@@ -304,6 +284,13 @@ export function DestinationScreen({ data, onUpdate, onNext, onBack }: Destinatio
                     setPickupQuery(e.target.value)
                     searchPickupPlaces(e.target.value)
                   }}
+                  onKeyDown={(e: import("react").KeyboardEvent<HTMLInputElement>) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault()
+                      if (pickupTimerRef.current) clearTimeout(pickupTimerRef.current)
+                      fetchPickupPredictions(pickupQuery)
+                    }
+                  }}
                 />
                 {pickupPredictions.length > 0 && (
                   <div className="absolute top-full w-full mt-1 border rounded-xl bg-white z-30 shadow-2xl overflow-hidden">
@@ -313,6 +300,7 @@ export function DestinationScreen({ data, onUpdate, onNext, onBack }: Destinatio
                       pickupPredictions.map((p) => (
                         <button
                           key={p.place_id}
+                          type="button"
                           onClick={() => selectPickupPlace(p.place_id, p.name)}
                           className="w-full p-4 text-left hover:bg-muted border-b last:border-0"
                         >
@@ -329,7 +317,7 @@ export function DestinationScreen({ data, onUpdate, onNext, onBack }: Destinatio
         </div>
 
         {/* Step 2: Destination & Logistics */}
-        {pickupConfirmed && !isChangingPickup && (
+        {pickupConfirmed && (
           <div className="space-y-6 animate-in fade-in slide-in-from-top-4 duration-500">
             <div className="space-y-4">
               <div className="relative">
