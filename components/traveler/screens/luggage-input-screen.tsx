@@ -3,7 +3,7 @@
 import React from "react"
 
 import { useState, useRef } from "react"
-import { ArrowLeft, Info, X, Ruler, Banknote, Flame, Leaf, Package, Camera, Plus, Trash2, Loader2, AlertTriangle, Gem, Scale, ShieldX } from "lucide-react"
+import { ArrowLeft, Info, X, Ruler, Banknote, Flame, Leaf, Package, Camera, Plus, Trash2, Loader2, Gem, Scale, ShieldX } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import Image from "next/image"
@@ -549,9 +549,6 @@ export function LuggageInputScreen({ data, onUpdate, onNext, onBack }: LuggageIn
 
             {/* Header */}
             <div className="bg-red-700 px-6 py-5 flex items-center gap-4 shrink-0">
-              <div className="w-14 h-14 bg-yellow-400 rounded-2xl flex items-center justify-center shrink-0">
-                <AlertTriangle className="w-8 h-8 text-black" />
-              </div>
               <div>
                 <p className="text-red-300 text-xs font-bold uppercase tracking-widest">Luggage Guidelines</p>
                 <h2 className="text-2xl font-black text-white leading-tight">Before you continue</h2>

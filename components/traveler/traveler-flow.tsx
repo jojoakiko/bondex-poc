@@ -5,6 +5,7 @@ import { saveBooking, generateOrderId, TRAVELER_CHECKOUT_DRAFT_KEY, type StoredB
 import { DEFAULT_PICKUP_FACILITY, formatFacilityAddress, type FacilityRecord } from "@/lib/facilities-data"
 import { LandingScreen } from "./screens/landing-screen"
 import { DestinationScreen } from "./screens/destination-screen"
+import { DeliveryDestinationScreen } from "./screens/delivery-destination-screen"
 import { LuggageInputScreen } from "./screens/luggage-input-screen"
 import { ContactInfoScreen } from "./screens/contact-info-screen"
 import { PaymentScreen } from "./screens/payment-screen"
@@ -19,6 +20,8 @@ export interface BookingData {
     name: string
     address: string
     facility: FacilityRecord
+    pickupDate?: string
+    pickupTime?: string
   }
   destination: {
     name: string
@@ -57,12 +60,13 @@ interface TravelerFlowProps {
 const STEP_MAP: Record<string, number> = {
   landing: 0,
   destination: 1,
-  "delivery-date": 2,
-  luggage: 3,
-  contact: 4,
-  payment: 5,
-  completion: 6,
-  status: 7,
+  "delivery-destination": 2,
+  "delivery-date": 3,
+  luggage: 4,
+  contact: 5,
+  payment: 6,
+  completion: 7,
+  status: 8,
 }
 
 export function TravelerFlow({ onBack, initialStep }: TravelerFlowProps) {
@@ -141,12 +145,12 @@ export function TravelerFlow({ onBack, initialStep }: TravelerFlowProps) {
     return (
       <div className="flex-1 flex flex-col max-w-md mx-auto w-full pb-8 bg-background animate-in fade-in slide-in-from-right-4 duration-500">
         <div className="p-4 flex items-center gap-4 border-b border-border sticky top-0 bg-white/80 backdrop-blur-md z-20">
-          <button onClick={() => setStep(1)} className="p-2 -ml-2 rounded-lg hover:bg-muted">
+          <button onClick={() => setStep(2)} className="p-2 -ml-2 rounded-lg hover:bg-muted">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
             <h1 className="text-xl font-bold tracking-tight">Delivery date</h1>
-            <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Step 2 of 6</p>
+            <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Step 3 of 6</p>
           </div>
         </div>
 
@@ -256,7 +260,7 @@ export function TravelerFlow({ onBack, initialStep }: TravelerFlowProps) {
                   expectedArrival: selectedTimeSlot,
                 },
               })
-              setStep(3)
+              setStep(4)
             }}
           >
             Continue
@@ -282,21 +286,21 @@ export function TravelerFlow({ onBack, initialStep }: TravelerFlowProps) {
       )}
 
       {}
-      {step === 2 && <DeliveryDateScreen />}
-
-      {}
-      {step === 3 && (
-        <LuggageInputScreen
+      {step === 2 && (
+        <DeliveryDestinationScreen
           data={data}
-          onUpdate={(d) => setData(d)}
-          onNext={() => setStep(4)}
-          onBack={() => setStep(2)}
+          onUpdate={handleUpdate}
+          onNext={() => setStep(3)}
+          onBack={() => setStep(1)}
         />
       )}
 
       {}
+      {step === 3 && <DeliveryDateScreen />}
+
+      {}
       {step === 4 && (
-        <ContactInfoScreen
+        <LuggageInputScreen
           data={data}
           onUpdate={(d) => setData(d)}
           onNext={() => setStep(5)}
@@ -306,6 +310,16 @@ export function TravelerFlow({ onBack, initialStep }: TravelerFlowProps) {
 
       {}
       {step === 5 && (
+        <ContactInfoScreen
+          data={data}
+          onUpdate={(d) => setData(d)}
+          onNext={() => setStep(6)}
+          onBack={() => setStep(4)}
+        />
+      )}
+
+      {}
+      {step === 6 && (
         <PaymentScreen
           data={data}
           onUpdate={(d) => setData(d)}
@@ -361,19 +375,19 @@ export function TravelerFlow({ onBack, initialStep }: TravelerFlowProps) {
             }
             saveBooking(stored)
             setData((prev) => ({ ...prev, ...booking, orderId }))
-            setStep(6)
+            setStep(7)
           }}
-          onBack={() => setStep(4)}
+          onBack={() => setStep(5)}
         />
       )}
 
       {}
-      {step === 6 && (
-        <CompletionScreen data={data} onViewStatus={() => setStep(7)} onBack={() => setStep(5)} />
+      {step === 7 && (
+        <CompletionScreen data={data} onViewStatus={() => setStep(8)} onBack={() => setStep(6)} />
       )}
 
       {}
-      {step === 7 && <StatusDashboard data={data} onBack={() => setStep(6)} />}
+      {step === 8 && <StatusDashboard data={data} onBack={() => setStep(7)} />}
 
       {}
       <footer className="max-w-md mx-auto w-full px-6 py-6 border-t border-border/50">
