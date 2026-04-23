@@ -10,7 +10,7 @@ import { ContactInfoScreen } from "./screens/contact-info-screen"
 import { PaymentScreen } from "./screens/payment-screen"
 import { CompletionScreen } from "./screens/completion-screen"
 import { StatusDashboard } from "./screens/status-dashboard"
-import { Calendar, Clock, ChevronRight, CheckCircle2, Info } from "lucide-react"
+import { Calendar, Clock, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 export interface BookingData {
@@ -241,28 +241,6 @@ export function TravelerFlow({ onBack, initialStep }: TravelerFlowProps) {
             })}
           </div>
 
-          {}
-          <div className="space-y-3 pt-4 border-t">
-            <p className="text-xs font-black uppercase tracking-widest text-muted-foreground pl-1 flex items-center gap-2">
-              <Info className="w-3 h-3" /> Good to know
-            </p>
-            <div className="space-y-4">
-              <div className="flex gap-3">
-                <CheckCircle2 className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  <span className="font-bold text-foreground block">Hotel Front Desk Collection</span>
-                  Luggage is received at the hotel front desk. You don{"'"}t need to be present.
-                </p>
-              </div>
-              <div className="flex gap-3">
-                <CheckCircle2 className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  <span className="font-bold text-foreground block">Secure Storage</span>
-                  Hotel staff will hold your luggage safely until you arrive.
-                </p>
-              </div>
-            </div>
-          </div>
         </div>
 
         {}
