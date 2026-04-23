@@ -548,25 +548,24 @@ export function LuggageInputScreen({ data, onUpdate, onNext, onBack }: LuggageIn
           <div className="relative bg-white w-full max-w-md rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[92vh]">
 
             {/* Header */}
-            <div className="bg-amber-500 px-6 py-5 flex items-center gap-4 shrink-0">
-              <div className="w-14 h-14 bg-white/25 rounded-2xl flex items-center justify-center shrink-0">
+            <div className="bg-slate-800 px-6 py-5 flex items-center gap-4 shrink-0">
+              <div className="w-14 h-14 bg-white/15 rounded-2xl flex items-center justify-center shrink-0">
                 <AlertTriangle className="w-8 h-8 text-white" />
               </div>
               <div>
-                <p className="text-amber-100 text-xs font-bold uppercase tracking-widest">Luggage Guidelines</p>
+                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">Luggage Guidelines</p>
                 <h2 className="text-2xl font-black text-white leading-tight">Before you continue</h2>
               </div>
             </div>
 
             {/* Scrollable body */}
-            <div className="overflow-y-auto flex-1 p-5 space-y-4 bg-gray-50">
+            <div className="overflow-y-auto flex-1 p-5 space-y-4 bg-slate-50">
 
               {/* Size & Weight */}
-              <div className="bg-blue-600 rounded-2xl p-4 text-white">
-                <p className="text-xs font-black uppercase tracking-widest text-blue-200 mb-3">Maximum allowed</p>
+              <div className="bg-slate-700 rounded-2xl p-4 text-white">
+                <p className="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">Maximum allowed</p>
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-white/15 rounded-xl p-4 text-center">
-                    {/* Suitcase + ruler illustration */}
+                  <div className="bg-white/10 rounded-xl p-4 text-center">
                     <svg viewBox="0 0 64 64" className="w-12 h-12 mx-auto mb-2" fill="none">
                       <rect x="12" y="20" width="40" height="34" rx="5" stroke="white" strokeWidth="2.5"/>
                       <rect x="22" y="12" width="20" height="12" rx="3" stroke="white" strokeWidth="2.5"/>
@@ -574,16 +573,14 @@ export function LuggageInputScreen({ data, onUpdate, onNext, onBack }: LuggageIn
                       <line x1="40" y1="24" x2="40" y2="20" stroke="white" strokeWidth="2"/>
                       <circle cx="19" cy="56" r="3" stroke="white" strokeWidth="2"/>
                       <circle cx="45" cy="56" r="3" stroke="white" strokeWidth="2"/>
-                      {/* arrows */}
                       <line x1="4" y1="20" x2="4" y2="54" stroke="white" strokeWidth="1.5" strokeDasharray="2 2"/>
                       <polyline points="2,23 4,20 6,23" stroke="white" strokeWidth="1.5" fill="none"/>
                       <polyline points="2,51 4,54 6,51" stroke="white" strokeWidth="1.5" fill="none"/>
                     </svg>
                     <p className="text-3xl font-black">200<span className="text-lg">cm</span></p>
-                    <p className="text-blue-200 text-xs mt-1">L + W + H</p>
+                    <p className="text-slate-400 text-xs mt-1">L + W + H</p>
                   </div>
-                  <div className="bg-white/15 rounded-xl p-4 text-center">
-                    {/* Scale illustration */}
+                  <div className="bg-white/10 rounded-xl p-4 text-center">
                     <svg viewBox="0 0 64 64" className="w-12 h-12 mx-auto mb-2" fill="none">
                       <line x1="32" y1="8" x2="32" y2="52" stroke="white" strokeWidth="2.5"/>
                       <line x1="10" y1="22" x2="54" y2="22" stroke="white" strokeWidth="2.5"/>
@@ -594,48 +591,48 @@ export function LuggageInputScreen({ data, onUpdate, onNext, onBack }: LuggageIn
                       <rect x="28" y="52" width="8" height="4" rx="2" fill="white"/>
                     </svg>
                     <p className="text-3xl font-black">30<span className="text-lg">kg</span></p>
-                    <p className="text-blue-200 text-xs mt-1">per item</p>
+                    <p className="text-slate-400 text-xs mt-1">per item</p>
                   </div>
                 </div>
               </div>
 
               {/* Prohibited items */}
-              <div className="bg-white rounded-2xl p-4 border-2 border-red-100">
+              <div className="bg-white rounded-2xl p-4 border border-red-200">
                 <div className="flex items-center gap-2 mb-3">
-                  <div className="w-7 h-7 bg-red-500 rounded-full flex items-center justify-center shrink-0">
+                  <div className="w-7 h-7 bg-red-700 rounded-full flex items-center justify-center shrink-0">
                     <X className="w-4 h-4 text-white" />
                   </div>
-                  <p className="text-base font-black text-red-600">Do Not Include</p>
+                  <p className="text-base font-black text-red-700">Do Not Include</p>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    { icon: Banknote, label: "Cash &\nvaluables", bg: "bg-yellow-50", border: "border-yellow-200", color: "text-yellow-600", iconBg: "bg-yellow-100" },
-                    { icon: Gem, label: "Fragile\nhigh-value", bg: "bg-purple-50", border: "border-purple-200", color: "text-purple-600", iconBg: "bg-purple-100" },
-                    { icon: Flame, label: "Dangerous /\nflammable", bg: "bg-orange-50", border: "border-orange-200", color: "text-orange-600", iconBg: "bg-orange-100" },
-                    { icon: Leaf, label: "Perishable\ngoods", bg: "bg-green-50", border: "border-green-200", color: "text-green-600", iconBg: "bg-green-100" },
-                    { icon: ShieldX, label: "Illegal\nitems", bg: "bg-slate-50", border: "border-slate-200", color: "text-slate-600", iconBg: "bg-slate-100" },
-                    { icon: Package, label: "Poorly packed\nfragile items", bg: "bg-red-50", border: "border-red-200", color: "text-red-600", iconBg: "bg-red-100" },
-                  ].map(({ icon: Icon, label, bg, border, color, iconBg }) => (
-                    <div key={label} className={`${bg} border ${border} rounded-xl p-3 flex items-center gap-3`}>
-                      <div className={`w-9 h-9 ${iconBg} rounded-lg flex items-center justify-center shrink-0`}>
-                        <Icon className={`w-5 h-5 ${color}`} />
+                    { icon: Banknote,  label: "Cash &\nvaluables",         red: true  },
+                    { icon: Gem,       label: "Fragile\nhigh-value",        red: false },
+                    { icon: Flame,     label: "Dangerous /\nflammable",     red: true  },
+                    { icon: Leaf,      label: "Perishable\ngoods",          red: false },
+                    { icon: ShieldX,   label: "Illegal\nitems",             red: true  },
+                    { icon: Package,   label: "Poorly packed\nfragile",     red: false },
+                  ].map(({ icon: Icon, label, red }) => (
+                    <div key={label} className={`rounded-xl p-3 flex items-center gap-3 border ${red ? "bg-red-50 border-red-100" : "bg-slate-50 border-slate-200"}`}>
+                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${red ? "bg-red-100" : "bg-slate-200"}`}>
+                        <Icon className={`w-5 h-5 ${red ? "text-red-700" : "text-slate-600"}`} />
                       </div>
-                      <p className={`text-xs font-bold ${color} whitespace-pre-line leading-tight`}>{label}</p>
+                      <p className={`text-xs font-bold whitespace-pre-line leading-tight ${red ? "text-red-800" : "text-slate-700"}`}>{label}</p>
                     </div>
                   ))}
                 </div>
                 <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-xl">
                   <p className="text-xs text-red-700 font-semibold text-center">
-                    ⚠️ If restricted items are discovered, delivery may be refused.
+                    If restricted items are discovered, delivery may be refused.
                   </p>
                 </div>
               </div>
 
               {/* Terms */}
-              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
-                <p className="text-sm font-semibold text-amber-900 text-center">
+              <div className="bg-slate-100 border border-slate-200 rounded-2xl p-4">
+                <p className="text-sm font-semibold text-slate-700 text-center">
                   By continuing, you confirm your luggage complies with these guidelines and you agree to our{" "}
-                  <a href="/legal/terms" target="_blank" rel="noopener noreferrer" className="underline">
+                  <a href="/legal/terms" target="_blank" rel="noopener noreferrer" className="underline text-slate-900">
                     Terms of Service
                   </a>.
                 </p>
@@ -643,11 +640,11 @@ export function LuggageInputScreen({ data, onUpdate, onNext, onBack }: LuggageIn
             </div>
 
             {/* Footer buttons */}
-            <div className="p-4 bg-white border-t border-gray-100 flex gap-3 shrink-0">
+            <div className="p-4 bg-white border-t border-slate-100 flex gap-3 shrink-0">
               <Button variant="outline" onClick={() => setShowConfirmModal(false)} className="flex-1 h-12 rounded-xl">
                 Back
               </Button>
-              <Button onClick={handleConfirm} className="flex-1 h-12 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold">
+              <Button onClick={handleConfirm} className="flex-1 h-12 rounded-xl bg-slate-900 hover:bg-black text-white font-bold">
                 I understand, continue
               </Button>
             </div>
