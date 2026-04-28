@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useState, useMemo, useRef, useCallback } from "react"
+import { useEffect, useState, useMemo, useRef } from "react"
 import { 
   ArrowLeft, MapPin, Search, User, AlertTriangle,
   ArrowRight, CheckCircle2, X, Clock,
@@ -12,10 +12,26 @@ import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
 import {
+  DEFAULT_PICKUP_FACILITY,
+  MOCK_FACILITIES,
+  findFacilityById,
   formatFacilityAddress,
   type FacilityRecord,
 } from "@/lib/facilities-data"
 import type { BookingData } from "../traveler-flow"
+
+function initialPickupFacility(data: BookingData): FacilityRecord {
+  if (data.pickup?.facility) return data.pickup.facility
+  if (data.pickup?.id) {
+    const f = findFacilityById(data.pickup.id)
+    if (f) return f
+  }
+  if (data.pickup?.name) {
+    const hit = MOCK_FACILITIES.find((x) => x.name === data.pickup!.name)
+    if (hit) return hit
+  }
+  return DEFAULT_PICKUP_FACILITY
+}
 
 
 function parseYmdLocal(ymd: string): Date {
@@ -40,115 +56,15 @@ interface DestinationScreenProps {
 
 export function DestinationScreen({ data, onUpdate, onNext, onBack }: DestinationScreenProps) {
   
-  const [pickupConfirmed, setPickupConfirmed] = useState(false)
-  const [pickupLocation, setPickupLocation] = useState<FacilityRecord | null>(null)
+  const [pickupConfirmed, setPickupConfirmed] = useState(() => !!data.pickup?.name)
+  const [isChangingPickup, setIsChangingPickup] = useState(false)
+  const [pickupLocation, setPickupLocation] = useState<FacilityRecord>(() => initialPickupFacility(data))
   const [pickupQuery, setPickupQuery] = useState("")
-  const [pickupPredictions, setPickupPredictions] = useState<{ place_id: string; name: string; secondary: string }[]>([])
-  const [pickupLoading, setPickupLoading] = useState(false)
-  const pickupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const [selectedFacility, setSelectedFacility] = useState<FacilityRecord | null>(() =>
     data.destination.facility ?? null
   )
   const [searchQuery, setSearchQuery] = useState(data.destination.name || "")
-  const [predictions, setPredictions] = useState<{ place_id: string; name: string; secondary: string }[]>([])
-  const [placesLoading, setPlacesLoading] = useState(false)
-  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  const searchPlaces = useCallback((q: string) => {
-    if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
-    if (!q) { setPredictions([]); return }
-    searchTimerRef.current = setTimeout(async () => {
-      setPlacesLoading(true)
-      try {
-        const res = await fetch(`/api/places?q=${encodeURIComponent(q)}`)
-        const data = await res.json()
-        setPredictions(data.predictions ?? [])
-      } catch {
-        setPredictions([])
-      } finally {
-        setPlacesLoading(false)
-      }
-    }, 300)
-  }, [])
-
-  const selectPlace = useCallback(async (placeId: string, placeName: string) => {
-    setSearchQuery(placeName)
-    setPredictions([])
-    try {
-      const res = await fetch(`/api/places?place_id=${placeId}`)
-      const detail = await res.json()
-      const facility: FacilityRecord = {
-        id: detail.id,
-        name: detail.name,
-        destType: "hotel",
-        full_name: detail.name,
-        company: detail.name,
-        email: "",
-        phone: "",
-        country: "JP",
-        zip: detail.zip ?? "",
-        province: detail.province ?? "",
-        city: detail.city ?? "",
-        address1: detail.address1 ?? "",
-        address2: "",
-        extra: "",
-      }
-      setSelectedFacility(facility)
-    } catch {
-      setSelectedFacility(null)
-    }
-  }, [])
-
-  const fetchPickupPredictions = useCallback(async (q: string) => {
-    if (!q) { setPickupPredictions([]); return }
-    setPickupLoading(true)
-    try {
-      const res = await fetch(`/api/places?q=${encodeURIComponent(q)}`)
-      const json = await res.json()
-      setPickupPredictions(json.predictions ?? [])
-    } catch {
-      setPickupPredictions([])
-    } finally {
-      setPickupLoading(false)
-    }
-  }, [])
-
-  const searchPickupPlaces = useCallback((q: string) => {
-    if (pickupTimerRef.current) clearTimeout(pickupTimerRef.current)
-    if (!q) { setPickupPredictions([]); return }
-    pickupTimerRef.current = setTimeout(() => fetchPickupPredictions(q), 300)
-  }, [fetchPickupPredictions])
-
-  const selectPickupPlace = useCallback(async (placeId: string, placeName: string) => {
-    setPickupQuery(placeName)
-    setPickupPredictions([])
-    try {
-      const res = await fetch(`/api/places?place_id=${placeId}`)
-      const detail = await res.json()
-      const facility: FacilityRecord = {
-        id: detail.id,
-        name: detail.name,
-        destType: "hotel",
-        full_name: detail.name,
-        company: detail.name,
-        email: "",
-        phone: "",
-        country: "JP",
-        zip: detail.zip ?? "",
-        province: detail.province ?? "",
-        city: detail.city ?? "",
-        address1: detail.address1 ?? "",
-        address2: "",
-        extra: "",
-      }
-      setPickupLocation(facility)
-      setPickupConfirmed(true)
-    } catch {
-      // ignore
-    }
-  }, [])
-
   const [arrivalDate, setArrivalDate] = useState(data.destination.checkInDate || "")
   const [arrivalTime, setArrivalTime] = useState("") 
   const [bookingName, setBookingName] = useState(data.destination.bookingName || "")
@@ -217,7 +133,7 @@ export function DestinationScreen({ data, onUpdate, onNext, onBack }: Destinatio
 
   
   const handleContinue = () => {
-    if (!selectedFacility || !pickupLocation) return
+    if (!selectedFacility) return
     onUpdate({
       pickup: {
         id: pickupLocation.id,
@@ -250,106 +166,61 @@ export function DestinationScreen({ data, onUpdate, onNext, onBack }: Destinatio
         
         {}
         <div className={`p-4 rounded-2xl border-2 transition-all ${pickupConfirmed ? "bg-muted/30 border-transparent shadow-none" : "bg-primary/5 border-primary shadow-lg shadow-primary/10"}`}>
-          {pickupConfirmed && pickupLocation ? (
+          {!isChangingPickup ? (
             <div className="flex items-start gap-3">
-              <MapPin className="w-5 h-5 mt-1 text-muted-foreground" />
+              <MapPin className={`w-5 h-5 mt-1 ${pickupConfirmed ? "text-muted-foreground" : "text-primary"}`} />
               <div className="flex-1">
-                <p className="text-[10px] uppercase font-bold text-muted-foreground">Pickup Point</p>
+                <p className="text-[10px] uppercase font-bold text-muted-foreground">Step 1: Pickup Point</p>
                 <p className="font-bold text-base">{pickupLocation.name}</p>
                 <p className="text-xs text-muted-foreground">{formatFacilityAddress(pickupLocation)}</p>
-                <div className="mt-2 flex items-center gap-1.5 text-primary text-xs font-medium">
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>Location confirmed</span>
-                  <button
-                    type="button"
-                    onClick={() => { setPickupConfirmed(false); setPickupQuery(""); setPickupPredictions([]) }}
-                    className="ml-auto text-[10px] text-muted-foreground underline"
-                  >
-                    Change
-                  </button>
-                </div>
+                
+                {!pickupConfirmed ? (
+                  <div className="mt-4 flex gap-2">
+                    <Button className="flex-1 rounded-xl font-bold shadow-md shadow-primary/20" onClick={() => setPickupConfirmed(true)}>Yes, I'm here</Button>
+                    <button onClick={() => setIsChangingPickup(true)} className="text-[10px] text-muted-foreground underline underline-offset-4 px-2">Not here?</button>
+                  </div>
+                ) : (
+                  <div className="mt-2 flex items-center gap-1.5 text-primary text-xs font-medium">
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Location confirmed</span>
+                    <button onClick={() => {setPickupConfirmed(false); setIsChangingPickup(true);}} className="ml-auto text-[10px] text-muted-foreground underline">Change</button>
+                  </div>
+                )}
               </div>
             </div>
           ) : (
-            <div className="space-y-3">
-              <p className="text-[10px] uppercase font-black tracking-widest text-primary">Search Pickup Location</p>
+            <div className="space-y-3 animate-in fade-in zoom-in-95">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] uppercase font-black tracking-widest text-primary">Search Pickup Location</p>
+                <button onClick={() => setIsChangingPickup(false)} className="text-muted-foreground"><X className="w-4 h-4" /></button>
+              </div>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  autoFocus
-                  placeholder="Enter hotel name..."
-                  className="pl-9 h-12 rounded-xl border-primary"
-                  value={pickupQuery}
-                  onChange={(e) => {
-                    setPickupQuery(e.target.value)
-                    searchPickupPlaces(e.target.value)
-                  }}
-                  onKeyDown={(e: import("react").KeyboardEvent<HTMLInputElement>) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault()
-                      if (pickupTimerRef.current) clearTimeout(pickupTimerRef.current)
-                      fetchPickupPredictions(pickupQuery)
-                    }
-                  }}
-                />
-                {(pickupLoading || pickupPredictions.length > 0) && pickupQuery && (
-                  <div className="absolute top-full w-full mt-1 border rounded-xl bg-white z-30 shadow-2xl overflow-hidden">
-                    {pickupLoading ? (
-                      <div className="p-4 text-sm text-muted-foreground text-center">Searching...</div>
-                    ) : pickupPredictions.length > 0 ? (
-                      pickupPredictions.map((p) => (
-                        <button
-                          key={p.place_id}
-                          type="button"
-                          onClick={() => selectPickupPlace(p.place_id, p.name)}
-                          className="w-full p-4 text-left hover:bg-muted border-b last:border-0"
-                        >
-                          <p className="font-bold text-sm">{p.name}</p>
-                          <p className="text-xs text-muted-foreground">{p.secondary}</p>
-                        </button>
-                      ))
-                    ) : (
-                      <div className="p-4 text-sm text-muted-foreground text-center">No results found</div>
-                    )}
-                  </div>
-                )}
+                <Input autoFocus placeholder="Enter hotel name..." className="pl-9 h-12 rounded-xl border-primary" value={pickupQuery} onChange={(e) => setPickupQuery(e.target.value)} />
+              </div>
+              <div className="max-h-40 overflow-auto border rounded-xl bg-background shadow-inner">
+                {MOCK_FACILITIES.filter(f => f.destType === "hotel" && f.name.toLowerCase().includes(pickupQuery.toLowerCase())).map(f => (
+                  <button key={f.id} onClick={() => {setPickupLocation(f); setIsChangingPickup(false); setPickupConfirmed(true);}} className="w-full p-3 text-left hover:bg-primary/5 border-b last:border-0 text-sm font-medium">
+                    {f.name}
+                  </button>
+                ))}
               </div>
             </div>
           )}
         </div>
 
         {/* Step 2: Destination & Logistics */}
-        {pickupConfirmed && (
+        {pickupConfirmed && !isChangingPickup && (
           <div className="space-y-6 animate-in fade-in slide-in-from-top-4 duration-500">
             <div className="space-y-4">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  placeholder="Where to?"
-                  className="pl-9 h-14 rounded-2xl shadow-sm focus:ring-primary"
-                  value={searchQuery}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value)
-                    setSelectedFacility(null)
-                    searchPlaces(e.target.value)
-                  }}
-                />
-                {!selectedFacility && predictions.length > 0 && (
+                <Input placeholder="Where to?" className="pl-9 h-14 rounded-2xl shadow-sm focus:ring-primary" value={searchQuery} onChange={(e) => {setSearchQuery(e.target.value); setSelectedFacility(null);}} />
+                {!selectedFacility && searchQuery && (
                   <div className="absolute top-full w-full mt-1 border rounded-xl bg-white z-30 shadow-2xl overflow-hidden">
-                    {placesLoading ? (
-                      <div className="p-4 text-sm text-muted-foreground text-center">Searching...</div>
-                    ) : (
-                      predictions.map((p) => (
-                        <button
-                          key={p.place_id}
-                          onClick={() => selectPlace(p.place_id, p.name)}
-                          className="w-full p-4 text-left hover:bg-muted border-b last:border-0"
-                        >
-                          <p className="font-bold text-sm">{p.name}</p>
-                          <p className="text-xs text-muted-foreground">{p.secondary}</p>
-                        </button>
-                      ))
-                    )}
+                    {MOCK_FACILITIES.filter(f => f.name.toLowerCase().includes(searchQuery.toLowerCase())).map(f => (
+                      <button key={f.id} onClick={() => {setSelectedFacility(f); setSearchQuery(f.name);}} className="w-full p-4 text-left hover:bg-muted border-b last:border-0 font-bold text-sm">{f.name}</button>
+                    ))}
                   </div>
                 )}
               </div>
