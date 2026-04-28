@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button"
 import type { Order } from "../hotel-staff-flow"
 import { useI18n } from "../i18n"
 import { LanguageSwitcher } from "../language-switcher"
-import { getBookingById, updateBookingStatus, updateBookingShipment } from "@/lib/booking-store"
-import { createShipment, buildShipmentPayload } from "@/lib/shipandco-api"
+import { getBookingById, updateBookingStatus, updateBookingShipment, type StoredBooking } from "@/lib/booking-store"
+import { createShipment, buildShipmentPayload, upsertOrder } from "@/lib/shipandco-api"
 import jsQR from "jsqr"
 
 interface CheckInScreenProps {
@@ -176,6 +176,25 @@ function QRScanner({ onScan, onClose }: { onScan: (result: string) => void; onCl
   )
 }
 
+function fixPickupAddress(booking: StoredBooking): StoredBooking {
+  const f = booking.pickup?.facility
+  if (!f) return booking
+  if ((f.address2 || "").trim()) return booking
+  // address2 is empty (Google Places booking before the fix).
+  // Move full address from address1 into address2; keep only city in address1.
+  return {
+    ...booking,
+    pickup: {
+      ...booking.pickup!,
+      facility: {
+        ...f,
+        address1: "",
+        address2: (f.address1 || f.city || "1番地").trim(),
+      },
+    },
+  }
+}
+
 export function CheckInScreen({ order, onPhotoCaptured, onFlagIssue, onBack }: CheckInScreenProps) {
   const { t } = useI18n()
   const [capturedPhotos, setCapturedPhotos] = useState<string[]>([])
@@ -219,16 +238,35 @@ export function CheckInScreen({ order, onPhotoCaptured, onFlagIssue, onBack }: C
     setLabelError(null)
     setIsSubmitting(true)
     try {
-      const payload = buildShipmentPayload(booking)
+      // Fix pickup facility address2 for bookings created before the Google Places fix.
+      // address2="" causes Yamato EF011008 (市区郡町村 required).
+      const fixedBooking = fixPickupAddress(booking)
+
+      // Persist corrected pickup to backend DB so it uses correct address2.
+      await upsertOrder({
+        orderId: fixedBooking.orderId,
+        status: fixedBooking.status,
+        destination: fixedBooking.destination as Record<string, unknown>,
+        deliveryDate: fixedBooking.deliveryDate,
+        items: fixedBooking.items,
+        contact: fixedBooking.contact as Record<string, unknown>,
+        payment: fixedBooking.payment as Record<string, unknown>,
+        messages: fixedBooking.messages ?? [],
+        pickup: fixedBooking.pickup as Record<string, unknown> | undefined,
+        sourceRole: "hotel_staff",
+      })
+
+      const payload = buildShipmentPayload(fixedBooking)
       const bondexOrder = {
-        orderId: booking.orderId,
+        orderId: fixedBooking.orderId,
         status: "checked_in",
-        destination: booking.destination,
-        deliveryDate: booking.deliveryDate,
-        items: booking.items,
-        contact: booking.contact,
-        payment: booking.payment,
-        messages: booking.messages ?? [],
+        destination: fixedBooking.destination as Record<string, unknown>,
+        deliveryDate: fixedBooking.deliveryDate,
+        items: fixedBooking.items,
+        contact: fixedBooking.contact as Record<string, unknown>,
+        payment: fixedBooking.payment as Record<string, unknown>,
+        messages: fixedBooking.messages ?? [],
+        pickup: fixedBooking.pickup as Record<string, unknown> | undefined,
       }
       const result = await createShipment(payload, bondexOrder)
       if (result.ok && result.data) {
