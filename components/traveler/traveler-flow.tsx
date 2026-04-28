@@ -5,7 +5,6 @@ import { saveBooking, generateOrderId, TRAVELER_CHECKOUT_DRAFT_KEY, type StoredB
 import { DEFAULT_PICKUP_FACILITY, formatFacilityAddress, type FacilityRecord } from "@/lib/facilities-data"
 import { LandingScreen } from "./screens/landing-screen"
 import { DestinationScreen } from "./screens/destination-screen"
-import { DeliveryDestinationScreen } from "./screens/delivery-destination-screen"
 import { LuggageInputScreen } from "./screens/luggage-input-screen"
 import { ContactInfoScreen } from "./screens/contact-info-screen"
 import { PaymentScreen } from "./screens/payment-screen"
@@ -20,8 +19,6 @@ export interface BookingData {
     name: string
     address: string
     facility: FacilityRecord
-    pickupDate?: string
-    pickupTime?: string
   }
   destination: {
     name: string
@@ -60,13 +57,12 @@ interface TravelerFlowProps {
 const STEP_MAP: Record<string, number> = {
   landing: 0,
   destination: 1,
-  "delivery-destination": 2,
-  "delivery-date": 3,
-  luggage: 4,
-  contact: 5,
-  payment: 6,
-  completion: 7,
-  status: 8,
+  "delivery-date": 2,
+  luggage: 3,
+  contact: 4,
+  payment: 5,
+  completion: 6,
+  status: 7,
 }
 
 export function TravelerFlow({ onBack, initialStep }: TravelerFlowProps) {
@@ -112,45 +108,27 @@ export function TravelerFlow({ onBack, initialStep }: TravelerFlowProps) {
       "18:00 - 20:00",
       "19:00 - 21:00",
     ]
-    const toYmd = (d: Date) => {
-      const y = d.getFullYear()
-      const mo = String(d.getMonth() + 1).padStart(2, "0")
-      const day = String(d.getDate()).padStart(2, "0")
-      return `${y}-${mo}-${day}`
-    }
-
-    // Minimum delivery datetime = pickup end time + 12 hours
-    const minDelivery = useMemo(() => {
-      const tomorrow = new Date()
-      tomorrow.setHours(0, 0, 0, 0)
-      tomorrow.setDate(tomorrow.getDate() + 1)
-      const pickupDate = data.pickup?.pickupDate
-      const pickupTime = data.pickup?.pickupTime
-      if (!pickupDate || !pickupTime) return { date: tomorrow, ymd: toYmd(tomorrow), minHour: 0 }
-      const endHour = parseInt(pickupTime.split(" - ")[1]?.split(":")[0] ?? "12", 10)
-      const [y, m, d] = pickupDate.split("-").map(Number)
-      const minDt = new Date(new Date(y, m - 1, d, endHour).getTime() + 12 * 60 * 60 * 1000)
-      const minDateOnly = new Date(minDt.getFullYear(), minDt.getMonth(), minDt.getDate())
-      const effectiveDate = minDateOnly >= tomorrow ? minDateOnly : tomorrow
-      return {
-        date: effectiveDate,
-        ymd: toYmd(effectiveDate),
-        minHour: minDateOnly >= tomorrow ? minDt.getHours() : 0,
-      }
-    }, [data.pickup?.pickupDate, data.pickup?.pickupTime])
-
+    const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>(
+      data.deliveryDate.expectedArrival ?? timeSlots[0]
+    )
     const deliveryOptions = useMemo(() => {
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      const start = new Date(today)
+      
+      start.setDate(start.getDate() + 1)
+
       return Array.from({ length: 4 }).map((_, i) => {
-        const d = new Date(minDelivery.date)
-        d.setDate(minDelivery.date.getDate() + i)
+        const d = new Date(start)
+        d.setDate(start.getDate() + i)
         const label = d.toLocaleDateString("en-US", {
           weekday: "short",
           month: "short",
           day: "numeric",
         })
-        return { label, ymd: toYmd(d), earliest: i === 0 }
+        return { label, earliest: i === 0 }
       })
-    }, [minDelivery])
+    }, [])
 
     const earliestLabel = deliveryOptions[0]?.label ?? ""
     const initialSelectedCandidate = data.deliveryDate.selected || data.deliveryDate.earliest
@@ -159,24 +137,16 @@ export function TravelerFlow({ onBack, initialStep }: TravelerFlowProps) {
       : earliestLabel
 
     const [selectedDate, setSelectedDate] = useState<string>(initialSelected)
-    const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>(
-      data.deliveryDate.expectedArrival ?? ""
-    )
-
-    const selectedYmd = deliveryOptions.find((o) => o.label === selectedDate)?.ymd ?? ""
-    const availableTimeSlots = selectedYmd === minDelivery.ymd
-      ? timeSlots.filter((slot) => parseInt(slot.split(":")[0], 10) >= minDelivery.minHour)
-      : timeSlots
 
     return (
       <div className="flex-1 flex flex-col max-w-md mx-auto w-full pb-8 bg-background animate-in fade-in slide-in-from-right-4 duration-500">
         <div className="p-4 flex items-center gap-4 border-b border-border sticky top-0 bg-white/80 backdrop-blur-md z-20">
-          <button onClick={() => setStep(2)} className="p-2 -ml-2 rounded-lg hover:bg-muted">
+          <button onClick={() => setStep(1)} className="p-2 -ml-2 rounded-lg hover:bg-muted">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
             <h1 className="text-xl font-bold tracking-tight">Delivery date</h1>
-            <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Step 3 of 6</p>
+            <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Step 2 of 6</p>
           </div>
         </div>
 
@@ -204,11 +174,6 @@ export function TravelerFlow({ onBack, initialStep }: TravelerFlowProps) {
                   type="button"
                   onClick={() => {
                     setSelectedDate(opt.label)
-                    // reset time slot if it becomes unavailable on this date
-                    if (selectedTimeSlot && opt.ymd === minDelivery.ymd) {
-                      const startHour = parseInt(selectedTimeSlot.split(":")[0], 10)
-                      if (startHour < minDelivery.minHour) setSelectedTimeSlot("")
-                    }
                   }}
                   className={`w-full p-4 rounded-2xl border-2 transition-all text-left ${
                     isSelected ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary/50"
@@ -247,7 +212,7 @@ export function TravelerFlow({ onBack, initialStep }: TravelerFlowProps) {
             <p className="text-xs font-black uppercase tracking-widest text-muted-foreground pl-1">
               Delivery time
             </p>
-            {availableTimeSlots.map((slot) => {
+            {timeSlots.map((slot) => {
               const isSelected = selectedTimeSlot === slot
               return (
                 <button
@@ -282,7 +247,6 @@ export function TravelerFlow({ onBack, initialStep }: TravelerFlowProps) {
         <div className="p-4 bg-background border-t border-border sticky bottom-0">
           <Button
             className="w-full h-14 text-lg font-bold rounded-2xl"
-            disabled={!selectedDate || !selectedTimeSlot}
             onClick={() => {
               handleUpdate({
                 deliveryDate: {
@@ -292,7 +256,7 @@ export function TravelerFlow({ onBack, initialStep }: TravelerFlowProps) {
                   expectedArrival: selectedTimeSlot,
                 },
               })
-              setStep(4)
+              setStep(3)
             }}
           >
             Continue
@@ -318,21 +282,21 @@ export function TravelerFlow({ onBack, initialStep }: TravelerFlowProps) {
       )}
 
       {}
-      {step === 2 && (
-        <DeliveryDestinationScreen
+      {step === 2 && <DeliveryDateScreen />}
+
+      {}
+      {step === 3 && (
+        <LuggageInputScreen
           data={data}
-          onUpdate={handleUpdate}
-          onNext={() => setStep(3)}
-          onBack={() => setStep(1)}
+          onUpdate={(d) => setData(d)}
+          onNext={() => setStep(4)}
+          onBack={() => setStep(2)}
         />
       )}
 
       {}
-      {step === 3 && <DeliveryDateScreen />}
-
-      {}
       {step === 4 && (
-        <LuggageInputScreen
+        <ContactInfoScreen
           data={data}
           onUpdate={(d) => setData(d)}
           onNext={() => setStep(5)}
@@ -342,16 +306,6 @@ export function TravelerFlow({ onBack, initialStep }: TravelerFlowProps) {
 
       {}
       {step === 5 && (
-        <ContactInfoScreen
-          data={data}
-          onUpdate={(d) => setData(d)}
-          onNext={() => setStep(6)}
-          onBack={() => setStep(4)}
-        />
-      )}
-
-      {}
-      {step === 6 && (
         <PaymentScreen
           data={data}
           onUpdate={(d) => setData(d)}
@@ -407,19 +361,19 @@ export function TravelerFlow({ onBack, initialStep }: TravelerFlowProps) {
             }
             saveBooking(stored)
             setData((prev) => ({ ...prev, ...booking, orderId }))
-            setStep(7)
+            setStep(6)
           }}
-          onBack={() => setStep(5)}
+          onBack={() => setStep(4)}
         />
       )}
 
       {}
-      {step === 7 && (
-        <CompletionScreen data={data} onViewStatus={() => setStep(8)} onBack={() => setStep(6)} />
+      {step === 6 && (
+        <CompletionScreen data={data} onViewStatus={() => setStep(7)} onBack={() => setStep(5)} />
       )}
 
       {}
-      {step === 8 && <StatusDashboard data={data} onBack={() => setStep(7)} />}
+      {step === 7 && <StatusDashboard data={data} onBack={() => setStep(6)} />}
 
       {}
       <footer className="max-w-md mx-auto w-full px-6 py-6 border-t border-border/50">
