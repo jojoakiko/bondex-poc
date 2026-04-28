@@ -197,25 +197,11 @@ const DEFAULT_TO_ADDRESS_LINES = {
   extra: "ビルB",
 }
 
-/**
- * address2 must be non-empty for Yamato (EF011008).
- * Google Places facilities store address2="" and address1=formatted_address.
- * Split: keep city in address1, move formatted_address to address2.
- */
-function resolveJpAddress(f: FacilityRecord): { address1: string; address2: string } {
-  const a2 = (f.address2 || "").trim()
-  if (a2) return { address1: `${f.city}${f.address1}`.trim(), address2: a2 }
-  const city = (f.city || "").trim()
-  const full = (f.address1 || "").trim()
-  return { address1: city || full, address2: full || city || "1番地" }
-}
-
 /** Map a facility record to Ship&co `from_address` / static address lines. */
 export function shipCoAddressFromFacility(
   f: FacilityRecord,
   fallbackPhoneEmail: Pick<typeof DEFAULT_HOTEL_ORIGIN, "email" | "phone" | "zip">
 ): Record<string, string> {
-  const { address1, address2 } = resolveJpAddress(f)
   return {
     full_name: f.full_name,
     company: f.company,
@@ -224,8 +210,8 @@ export function shipCoAddressFromFacility(
     country: f.country,
     zip: (f.zip || "").trim() || fallbackPhoneEmail.zip,
     province: f.province,
-    address1,
-    address2,
+    address1: `${f.city}${f.address1}`,
+    address2: f.address2,
     extra: f.extra || "",
   }
 }
@@ -264,7 +250,6 @@ function buildToAddress(booking: {
   }
   const f = booking.destination.facility
   if (f) {
-    const { address1, address2 } = resolveJpAddress(f)
     return {
       full_name: base.full_name,
       company: base.company,
@@ -273,8 +258,8 @@ function buildToAddress(booking: {
       country: f.country,
       zip: (f.zip || "").trim() || DEFAULT_TO_ADDRESS_LINES.zip,
       province: f.province,
-      address1,
-      address2,
+      address1: `${f.city}${f.address1}`,
+      address2: f.address2,
       extra: f.extra || "",
     }
   }

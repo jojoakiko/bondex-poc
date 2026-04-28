@@ -8,15 +8,6 @@ import { useI18n } from "../i18n"
 import { LanguageSwitcher } from "../language-switcher"
 import { getBookingById, updateBookingStatus, updateBookingShipment } from "@/lib/booking-store"
 import { createShipment, buildShipmentPayload } from "@/lib/shipandco-api"
-import type { FacilityRecord } from "@/lib/facilities-data"
-
-function fixFacilityAddress(f: FacilityRecord): FacilityRecord {
-  const a2 = (f.address2 || "").trim()
-  if (a2) return { ...f, address1: `${f.city}${f.address1}`.trim(), address2: a2 }
-  const city = (f.city || "").trim()
-  const full = (f.address1 || "").trim()
-  return { ...f, address1: city || full, address2: full || city || "1番地" }
-}
 import jsQR from "jsqr"
 
 interface CheckInScreenProps {
@@ -229,13 +220,9 @@ export function CheckInScreen({ order, onPhotoCaptured, onFlagIssue, onBack }: C
     setIsSubmitting(true)
     try {
       const payload = buildShipmentPayload(booking)
-      const fixedPickup = booking.pickup?.facility
-        ? { ...booking.pickup, facility: fixFacilityAddress(booking.pickup.facility) }
-        : booking.pickup
       const bondexOrder = {
         orderId: booking.orderId,
         status: "checked_in",
-        pickup: fixedPickup,
         destination: booking.destination,
         deliveryDate: booking.deliveryDate,
         items: booking.items,
