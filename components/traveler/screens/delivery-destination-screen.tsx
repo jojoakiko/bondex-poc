@@ -75,8 +75,8 @@ export function DeliveryDestinationScreen({ data, onUpdate, onNext, onBack }: De
         zip: detail.zip ?? "",
         province: detail.province ?? "",
         city: detail.city ?? "",
-        address1: detail.address1 ?? "",
-        address2: "",
+        address1: "",
+        address2: detail.address1 ?? "",
         extra: "",
       }
       setSelectedFacility(facility)

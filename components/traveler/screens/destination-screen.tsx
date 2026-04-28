@@ -94,8 +94,8 @@ export function DestinationScreen({ data, onUpdate, onNext, onBack }: Destinatio
         zip: detail.zip ?? "",
         province: detail.province ?? "",
         city: detail.city ?? "",
-        address1: detail.address1 ?? "",
-        address2: "",
+        address1: "",
+        address2: detail.address1 ?? "",
         extra: "",
       }
       setPickupLocation(facility)
