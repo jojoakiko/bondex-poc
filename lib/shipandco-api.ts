@@ -197,11 +197,34 @@ const DEFAULT_TO_ADDRESS_LINES = {
   extra: "ビルB",
 }
 
+/**
+ * Normalize a FacilityRecord's address fields for Ship&co (Yamato Japan).
+ * Google Places facilities have address2="" and address1=full_formatted_address,
+ * while pre-defined facilities have address2=building and address1=street_block.
+ * Ship&co requires address2 (市区郡町村) to be non-empty for Yamato.
+ */
+function normalizeJpAddress(f: FacilityRecord): { address1: string; address2: string } {
+  const rawA2 = (f.address2 || "").trim()
+  if (rawA2) {
+    // Pre-defined facility: city+street in address1, building in address2
+    return { address1: `${f.city}${f.address1}`.trim(), address2: rawA2 }
+  }
+  // Google Places facility: address1 = full formatted_address, address2 = ""
+  // → use city as address1, full address as address2
+  const city = (f.city || "").trim()
+  const fullAddr = (f.address1 || "").trim()
+  return {
+    address1: city || fullAddr,
+    address2: fullAddr || city || "1番地",
+  }
+}
+
 /** Map a facility record to Ship&co `from_address` / static address lines. */
 export function shipCoAddressFromFacility(
   f: FacilityRecord,
   fallbackPhoneEmail: Pick<typeof DEFAULT_HOTEL_ORIGIN, "email" | "phone" | "zip">
 ): Record<string, string> {
+  const { address1, address2 } = normalizeJpAddress(f)
   return {
     full_name: f.full_name,
     company: f.company,
@@ -210,8 +233,8 @@ export function shipCoAddressFromFacility(
     country: f.country,
     zip: (f.zip || "").trim() || fallbackPhoneEmail.zip,
     province: f.province,
-    address1: `${f.city}${f.address1}`,
-    address2: f.address2,
+    address1,
+    address2,
     extra: f.extra || "",
   }
 }
@@ -250,6 +273,7 @@ function buildToAddress(booking: {
   }
   const f = booking.destination.facility
   if (f) {
+    const { address1, address2 } = normalizeJpAddress(f)
     return {
       full_name: base.full_name,
       company: base.company,
@@ -258,8 +282,8 @@ function buildToAddress(booking: {
       country: f.country,
       zip: (f.zip || "").trim() || DEFAULT_TO_ADDRESS_LINES.zip,
       province: f.province,
-      address1: `${f.city}${f.address1}`,
-      address2: f.address2,
+      address1,
+      address2,
       extra: f.extra || "",
     }
   }
