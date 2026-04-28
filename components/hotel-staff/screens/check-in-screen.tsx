@@ -220,6 +220,8 @@ export function CheckInScreen({ order, onPhotoCaptured, onFlagIssue, onBack }: C
     setIsSubmitting(true)
     try {
       const payload = buildShipmentPayload(booking)
+      console.log("[handleDone] from_address:", JSON.stringify(payload.from_address, null, 2))
+      console.log("[handleDone] to_address:", JSON.stringify(payload.to_address, null, 2))
       const bondexOrder = {
         orderId: booking.orderId,
         status: "checked_in",
