@@ -51,8 +51,15 @@ export async function GET(req: NextRequest) {
   const place_id = searchParams.get("place_id")
 
   if (q) {
-    const url = `${BASE}/autocomplete/json?input=${encodeURIComponent(q)}&language=ja&region=jp&types=establishment&key=${API_KEY}`
-    const res  = await fetch(url, { next: { revalidate: 0 } })
+    const acUrl = new URL(`${BASE}/autocomplete/json`)
+    acUrl.searchParams.set("input", q)
+    acUrl.searchParams.set("language", "ja")
+    acUrl.searchParams.set("region", "jp")
+    acUrl.searchParams.set("types", searchParams.get("types") ?? "establishment")
+    const components = searchParams.get("components")
+    if (components) acUrl.searchParams.set("components", components)
+    acUrl.searchParams.set("key", API_KEY)
+    const res  = await fetch(acUrl.toString(), { next: { revalidate: 0 } })
     const data = await res.json()
     const predictions = ((data.predictions ?? []) as any[]).map((p) => ({
       place_id: p.place_id as string,
