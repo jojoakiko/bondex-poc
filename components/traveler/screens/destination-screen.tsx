@@ -1,10 +1,10 @@
 "use client"
 
-import { useEffect, useState, useMemo, useRef } from "react"
-import { 
-  ArrowLeft, MapPin, Search, User, AlertTriangle,
-  ArrowRight, CheckCircle2, X, Clock,
-  Calendar, PlaneTakeoff, Hotel, ShieldCheck, AlertCircle, Upload, FileText
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import {
+  ArrowLeft, MapPin, Search,
+  CheckCircle2, X, Clock,
+  Calendar, ShieldCheck, AlertCircle, Upload, FileText
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Calendar as DateCalendar } from "@/components/ui/calendar"
@@ -13,26 +13,12 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils"
 import {
   DEFAULT_PICKUP_FACILITY,
-  MOCK_FACILITIES,
-  findFacilityById,
   formatFacilityAddress,
   type FacilityRecord,
 } from "@/lib/facilities-data"
 import type { BookingData } from "../traveler-flow"
 
-function initialPickupFacility(data: BookingData): FacilityRecord {
-  if (data.pickup?.facility) return data.pickup.facility
-  if (data.pickup?.id) {
-    const f = findFacilityById(data.pickup.id)
-    if (f) return f
-  }
-  if (data.pickup?.name) {
-    const hit = MOCK_FACILITIES.find((x) => x.name === data.pickup!.name)
-    if (hit) return hit
-  }
-  return DEFAULT_PICKUP_FACILITY
-}
-
+type Prediction = { place_id: string; name: string; secondary: string }
 
 function parseYmdLocal(ymd: string): Date {
   const [y, m, d] = ymd.split("-").map(Number)
@@ -55,18 +41,25 @@ interface DestinationScreenProps {
 }
 
 export function DestinationScreen({ data, onUpdate, onNext, onBack }: DestinationScreenProps) {
-  
+
   const [pickupConfirmed, setPickupConfirmed] = useState(() => !!data.pickup?.name)
   const [isChangingPickup, setIsChangingPickup] = useState(false)
-  const [pickupLocation, setPickupLocation] = useState<FacilityRecord>(() => initialPickupFacility(data))
+  const [pickupLocation, setPickupLocation] = useState<FacilityRecord>(() => data.pickup?.facility ?? DEFAULT_PICKUP_FACILITY)
   const [pickupQuery, setPickupQuery] = useState("")
+  const [pickupPredictions, setPickupPredictions] = useState<Prediction[]>([])
+  const [pickupLoading, setPickupLoading] = useState(false)
+  const pickupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const [selectedFacility, setSelectedFacility] = useState<FacilityRecord | null>(() =>
     data.destination.facility ?? null
   )
   const [searchQuery, setSearchQuery] = useState(data.destination.name || "")
+  const [predictions, setPredictions] = useState<Prediction[]>([])
+  const [placesLoading, setPlacesLoading] = useState(false)
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   const [arrivalDate, setArrivalDate] = useState(data.destination.checkInDate || "")
-  const [arrivalTime, setArrivalTime] = useState("") 
+  const [arrivalTime, setArrivalTime] = useState("")
   const [bookingName, setBookingName] = useState(data.destination.bookingName || "")
   const [bookingDoc, setBookingDoc] = useState<File | null>(null)
   const bookingDocRef = useRef<HTMLInputElement>(null)
@@ -77,7 +70,6 @@ export function DestinationScreen({ data, onUpdate, onNext, onBack }: Destinatio
 
   const isAirport = selectedFacility?.destType === "airport"
 
-  
   const minArrival = useMemo(() => {
     const d = new Date()
     d.setHours(0, 0, 0, 0)
@@ -85,40 +77,122 @@ export function DestinationScreen({ data, onUpdate, onNext, onBack }: Destinatio
     return { ymd: formatYmdLocal(d), start: d }
   }, [])
 
-  
   useEffect(() => {
     if (!arrivalDate) return
     if (arrivalDate < minArrival.ymd) setArrivalDate(minArrival.ymd)
   }, [arrivalDate, minArrival.ymd])
 
-  
   const logisticsStatus = useMemo(() => {
     if (!isAirport || !arrivalDate || !arrivalTime) return null
-    
+
     const flightDate = parseYmdLocal(arrivalDate)
     const today = new Date()
     today.setHours(0, 0, 0, 0)
-    
-    
+
     const shippingDeadline = new Date(flightDate)
     shippingDeadline.setDate(flightDate.getDate() - 2)
-    
-    
+
     const [hours, minutes] = arrivalTime.split(":").map(Number)
-    let pickupHour = hours - 2
+    const pickupHour = hours - 2
     const pickupTime = `${pickupHour.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`
 
     const isPossible = shippingDeadline >= today
 
     return {
-      shippingDeadline: shippingDeadline.toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' }),
+      shippingDeadline: shippingDeadline.toLocaleDateString("ja-JP", { month: "short", day: "numeric" }),
       pickupDeadline: pickupTime,
       isPossible,
-      error: !isPossible ? "空港配送はフライトの2日前までの予約が必須です。" : null
+      error: !isPossible ? "空港配送はフライトの2日前までの予約が必須です。" : null,
     }
   }, [isAirport, arrivalDate, arrivalTime])
 
+  // Fetch place details from /api/places and map to FacilityRecord.
+  // address2 is intentionally left empty — never use formatted_address here.
+  const placesToFacility = useCallback(async (placeId: string): Promise<FacilityRecord | null> => {
+    try {
+      const res = await fetch(`/api/places?place_id=${encodeURIComponent(placeId)}`)
+      const detail = await res.json()
+      const facility: FacilityRecord = {
+        id: detail.id,
+        name: detail.name,
+        destType: detail.destType ?? "hotel",
+        full_name: detail.name,
+        company: detail.name,
+        email: "",
+        phone: detail.phone ?? "",
+        country: "JP",
+        zip: detail.zip ?? "",
+        province: detail.province ?? "",
+        city: detail.city ?? "",
+        address1: detail.address1 ?? "",
+        address2: "",
+        extra: "",
+      }
+      console.log("[bondex] FacilityRecord:", JSON.stringify({
+        name: facility.name,
+        province: facility.province,
+        address1: facility.address1,
+        address2: facility.address2,
+      }, null, 2))
+      return facility
+    } catch {
+      return null
+    }
+  }, [])
 
+  // ---- Pickup search ----
+  const searchPickupPlaces = useCallback((q: string) => {
+    if (pickupTimerRef.current) clearTimeout(pickupTimerRef.current)
+    if (!q) { setPickupPredictions([]); return }
+    pickupTimerRef.current = setTimeout(async () => {
+      setPickupLoading(true)
+      try {
+        const res = await fetch(`/api/places?q=${encodeURIComponent(q)}`)
+        const json = await res.json()
+        setPickupPredictions(json.predictions ?? [])
+      } catch {
+        setPickupPredictions([])
+      } finally {
+        setPickupLoading(false)
+      }
+    }, 300)
+  }, [])
+
+  const selectPickupPlace = useCallback(async (placeId: string, placeName: string) => {
+    setPickupQuery(placeName)
+    setPickupPredictions([])
+    const facility = await placesToFacility(placeId)
+    if (facility) {
+      setPickupLocation(facility)
+      setPickupConfirmed(true)
+      setIsChangingPickup(false)
+    }
+  }, [placesToFacility])
+
+  // ---- Destination search ----
+  const searchPlaces = useCallback((q: string) => {
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
+    if (!q) { setPredictions([]); return }
+    searchTimerRef.current = setTimeout(async () => {
+      setPlacesLoading(true)
+      try {
+        const res = await fetch(`/api/places?q=${encodeURIComponent(q)}`)
+        const json = await res.json()
+        setPredictions(json.predictions ?? [])
+      } catch {
+        setPredictions([])
+      } finally {
+        setPlacesLoading(false)
+      }
+    }, 300)
+  }, [])
+
+  const selectPlace = useCallback(async (placeId: string, placeName: string) => {
+    setSearchQuery(placeName)
+    setPredictions([])
+    const facility = await placesToFacility(placeId)
+    if (facility) setSelectedFacility(facility)
+  }, [placesToFacility])
 
   const effectiveRecipient = sameAsBooking ? bookingName : recipientName
 
@@ -131,7 +205,6 @@ export function DestinationScreen({ data, onUpdate, onNext, onBack }: Destinatio
     return !!basicInfo
   }, [pickupConfirmed, selectedFacility, arrivalDate, arrivalTime, bookingName, bookingDoc, sameAsBooking, recipientName, isAirport, flightNumber, logisticsStatus])
 
-  
   const handleContinue = () => {
     if (!selectedFacility) return
     onUpdate({
@@ -156,15 +229,15 @@ export function DestinationScreen({ data, onUpdate, onNext, onBack }: Destinatio
 
   return (
     <div className="flex-1 flex flex-col max-w-md mx-auto w-full pb-8 bg-background">
-      {}
+      {/* Header */}
       <div className="p-4 flex items-center gap-4 border-b border-border sticky top-0 bg-white/80 backdrop-blur-md z-20">
         <button onClick={onBack} className="p-2 -ml-2 rounded-lg hover:bg-muted"><ArrowLeft className="w-5 h-5" /></button>
         <h1 className="text-xl font-bold tracking-tight">Trip Plan</h1>
       </div>
 
       <div className="flex-1 overflow-auto p-4 space-y-6">
-        
-        {}
+
+        {/* Step 1: Pickup */}
         <div className={`p-4 rounded-2xl border-2 transition-all ${pickupConfirmed ? "bg-muted/30 border-transparent shadow-none" : "bg-primary/5 border-primary shadow-lg shadow-primary/10"}`}>
           {!isChangingPickup ? (
             <div className="flex items-start gap-3">
@@ -173,7 +246,7 @@ export function DestinationScreen({ data, onUpdate, onNext, onBack }: Destinatio
                 <p className="text-[10px] uppercase font-bold text-muted-foreground">Step 1: Pickup Point</p>
                 <p className="font-bold text-base">{pickupLocation.name}</p>
                 <p className="text-xs text-muted-foreground">{formatFacilityAddress(pickupLocation)}</p>
-                
+
                 {!pickupConfirmed ? (
                   <div className="mt-4 flex gap-2">
                     <Button className="flex-1 rounded-xl font-bold shadow-md shadow-primary/20" onClick={() => setPickupConfirmed(true)}>Yes, I'm here</Button>
@@ -183,7 +256,7 @@ export function DestinationScreen({ data, onUpdate, onNext, onBack }: Destinatio
                   <div className="mt-2 flex items-center gap-1.5 text-primary text-xs font-medium">
                     <CheckCircle2 className="w-4 h-4" />
                     <span>Location confirmed</span>
-                    <button onClick={() => {setPickupConfirmed(false); setIsChangingPickup(true);}} className="ml-auto text-[10px] text-muted-foreground underline">Change</button>
+                    <button onClick={() => { setPickupConfirmed(false); setIsChangingPickup(true) }} className="ml-auto text-[10px] text-muted-foreground underline">Change</button>
                   </div>
                 )}
               </div>
@@ -196,15 +269,33 @@ export function DestinationScreen({ data, onUpdate, onNext, onBack }: Destinatio
               </div>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input autoFocus placeholder="Enter hotel name..." className="pl-9 h-12 rounded-xl border-primary" value={pickupQuery} onChange={(e) => setPickupQuery(e.target.value)} />
+                <Input
+                  autoFocus
+                  placeholder="Enter hotel name..."
+                  className="pl-9 h-12 rounded-xl border-primary"
+                  value={pickupQuery}
+                  onChange={(e) => {
+                    setPickupQuery(e.target.value)
+                    searchPickupPlaces(e.target.value)
+                  }}
+                />
               </div>
-              <div className="max-h-40 overflow-auto border rounded-xl bg-background shadow-inner">
-                {MOCK_FACILITIES.filter(f => f.destType === "hotel" && f.name.toLowerCase().includes(pickupQuery.toLowerCase())).map(f => (
-                  <button key={f.id} onClick={() => {setPickupLocation(f); setIsChangingPickup(false); setPickupConfirmed(true);}} className="w-full p-3 text-left hover:bg-primary/5 border-b last:border-0 text-sm font-medium">
-                    {f.name}
-                  </button>
-                ))}
-              </div>
+              {(pickupLoading || pickupPredictions.length > 0) && pickupQuery && (
+                <div className="max-h-40 overflow-auto border rounded-xl bg-background shadow-inner">
+                  {pickupLoading ? (
+                    <div className="p-3 text-sm text-center text-muted-foreground">Searching...</div>
+                  ) : pickupPredictions.map((p) => (
+                    <button
+                      key={p.place_id}
+                      onClick={() => selectPickupPlace(p.place_id, p.name)}
+                      className="w-full p-3 text-left hover:bg-primary/5 border-b last:border-0"
+                    >
+                      <p className="text-sm font-bold">{p.name}</p>
+                      <p className="text-xs text-muted-foreground">{p.secondary}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -215,11 +306,29 @@ export function DestinationScreen({ data, onUpdate, onNext, onBack }: Destinatio
             <div className="space-y-4">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input placeholder="Where to?" className="pl-9 h-14 rounded-2xl shadow-sm focus:ring-primary" value={searchQuery} onChange={(e) => {setSearchQuery(e.target.value); setSelectedFacility(null);}} />
-                {!selectedFacility && searchQuery && (
+                <Input
+                  placeholder="Where to?"
+                  className="pl-9 h-14 rounded-2xl shadow-sm focus:ring-primary"
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value)
+                    setSelectedFacility(null)
+                    searchPlaces(e.target.value)
+                  }}
+                />
+                {!selectedFacility && (predictions.length > 0 || placesLoading) && searchQuery && (
                   <div className="absolute top-full w-full mt-1 border rounded-xl bg-white z-30 shadow-2xl overflow-hidden">
-                    {MOCK_FACILITIES.filter(f => f.name.toLowerCase().includes(searchQuery.toLowerCase())).map(f => (
-                      <button key={f.id} onClick={() => {setSelectedFacility(f); setSearchQuery(f.name);}} className="w-full p-4 text-left hover:bg-muted border-b last:border-0 font-bold text-sm">{f.name}</button>
+                    {placesLoading ? (
+                      <div className="p-4 text-sm text-muted-foreground text-center">Searching...</div>
+                    ) : predictions.map((p) => (
+                      <button
+                        key={p.place_id}
+                        onClick={() => selectPlace(p.place_id, p.name)}
+                        className="w-full p-4 text-left hover:bg-muted border-b last:border-0"
+                      >
+                        <p className="font-bold text-sm">{p.name}</p>
+                        <p className="text-xs text-muted-foreground">{p.secondary}</p>
+                      </button>
                     ))}
                   </div>
                 )}
@@ -364,7 +473,7 @@ export function DestinationScreen({ data, onUpdate, onNext, onBack }: Destinatio
                 )}
               </div>
 
-              {/* Recipient Name with "Same as booking" checkbox */}
+              {/* Recipient Name */}
               <div className="space-y-2">
                 <label className="text-[10px] font-bold text-muted-foreground ml-1">Recipient Name</label>
                 <button
@@ -399,9 +508,9 @@ export function DestinationScreen({ data, onUpdate, onNext, onBack }: Destinatio
 
       {/* Footer CTA */}
       <div className="p-4 bg-white border-t border-border mt-auto">
-        <Button 
+        <Button
           className="w-full h-14 text-lg font-bold rounded-2xl shadow-xl transition-all shadow-primary/20"
-          disabled={!canContinue} 
+          disabled={!canContinue}
           onClick={handleContinue}
         >
           {logisticsStatus?.error ? "Schedule Error" : "Confirm & Save Time"}
