@@ -130,12 +130,10 @@ export function DestinationScreen({ data, onUpdate, onNext, onBack }: Destinatio
       const res = await fetch(`/api/places?place_id=${encodeURIComponent(placeId)}`)
       const d = await res.json()
       const components: AC[] = d.address_components ?? []
-      const province = components.length > 0
-        ? acGet(components, "administrative_area_level_1")
-        : (d.province ?? "")
-      const address1 = components.length > 0
-        ? buildAddress1(components)
-        : (d.address1 ?? "")
+      console.log("[bondex] address_components raw:", JSON.stringify(components, null, 2))
+      const province = acGet(components, "administrative_area_level_1") || d.province || ""
+      const address1 = buildAddress1(components) || d.address1 || ""
+      console.log("[bondex] built:", JSON.stringify({ province, address1, address2: "" }, null, 2))
       const facility: FacilityRecord = {
         id: d.id,
         name: d.name,
