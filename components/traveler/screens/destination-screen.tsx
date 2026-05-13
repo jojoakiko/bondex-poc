@@ -31,12 +31,17 @@ function acGet(components: AC[], type: string): string {
 }
 
 function buildAddress1(components: AC[]): string {
+  const sub2 = acGet(components, "sublocality_level_2")
+  const sub3 = acGet(components, "sublocality_level_3")
+  const sub4 = acGet(components, "sublocality_level_4")
+  // Google Places sometimes returns 丁目/街道名 as `route` instead of sublocality_level_2~4.
+  // Use route as fallback only when finer sublocalities are absent to avoid duplication.
+  const street = sub2 || sub3 || sub4 ? "" : acGet(components, "route")
   return [
     acGet(components, "locality"),
     acGet(components, "sublocality_level_1"),
-    acGet(components, "sublocality_level_2"),
-    acGet(components, "sublocality_level_3"),
-    acGet(components, "sublocality_level_4"),
+    sub2, sub3, sub4,
+    street,
     acGet(components, "premise") || acGet(components, "street_number"),
   ]
     .filter(Boolean)

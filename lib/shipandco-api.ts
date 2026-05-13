@@ -209,13 +209,14 @@ function normalizeJpAddress(f: FacilityRecord): { address1: string; address2: st
     // Pre-defined facility: city+street in address1, building in address2
     return { address1: `${f.city}${f.address1}`.trim(), address2: rawA2 }
   }
-  // Google Places facility: address1 = full formatted_address, address2 = ""
-  // → use city as address1, full address as address2
+  // Google Places facility: address1 = full parsed address (locality+区+丁目+premise), address2 = ""
+  // Use facility name as address2 building identifier to satisfy Yamato EF011008 non-empty requirement.
+  const rawA1 = (f.address1 || "").trim()
   const city = (f.city || "").trim()
-  const fullAddr = (f.address1 || "").trim()
+  const buildingName = (f.name || f.company || "1F").trim()
   return {
-    address1: city || fullAddr,
-    address2: fullAddr || city || "1番地",
+    address1: rawA1 || city || buildingName,
+    address2: buildingName,
   }
 }
 
