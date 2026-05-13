@@ -93,6 +93,7 @@ export async function GET(req: NextRequest) {
       zip,
       country: "JP",
       phone: (result.international_phone_number ?? "") as string,
+      address_components: components,
     })
   }
 

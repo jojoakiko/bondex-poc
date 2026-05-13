@@ -15,9 +15,33 @@ import { formatFacilityAddress, type FacilityRecord } from "@/lib/facilities-dat
 import type { BookingData } from "../traveler-flow"
 
 type Prediction = { place_id: string; name: string; secondary: string }
+type AC = { long_name: string; short_name: string; types: string[] }
 
 // Restrict autocomplete to hotels in Japan
 const HOTEL_PARAMS = new URLSearchParams({ types: "lodging", components: "country:JP" }).toString()
+
+/**
+ * Build address1 from raw address_components.
+ * province = administrative_area_level_1
+ * address1 = locality + sublocality_level_1~4 + premise, joined with no separator.
+ * address2 = "" always.
+ */
+function acGet(components: AC[], type: string): string {
+  return components.find((c) => c.types.includes(type))?.long_name ?? ""
+}
+
+function buildAddress1(components: AC[]): string {
+  return [
+    acGet(components, "locality"),
+    acGet(components, "sublocality_level_1"),
+    acGet(components, "sublocality_level_2"),
+    acGet(components, "sublocality_level_3"),
+    acGet(components, "sublocality_level_4"),
+    acGet(components, "premise") || acGet(components, "street_number"),
+  ]
+    .filter(Boolean)
+    .join("")
+}
 
 function parseYmdLocal(ymd: string): Date {
   const [y, m, d] = ymd.split("-").map(Number)
@@ -99,11 +123,19 @@ export function DestinationScreen({ data, onUpdate, onNext, onBack }: Destinatio
   }, [isAirport, arrivalDate, arrivalTime])
 
   // Fetch place details and convert to FacilityRecord.
+  // Address fields are parsed directly from address_components (not from the server-parsed strings).
   // address2 is always "" — never use formatted_address.
   const placesToFacility = useCallback(async (placeId: string): Promise<FacilityRecord | null> => {
     try {
       const res = await fetch(`/api/places?place_id=${encodeURIComponent(placeId)}`)
       const d = await res.json()
+      const components: AC[] = d.address_components ?? []
+      const province = components.length > 0
+        ? acGet(components, "administrative_area_level_1")
+        : (d.province ?? "")
+      const address1 = components.length > 0
+        ? buildAddress1(components)
+        : (d.address1 ?? "")
       const facility: FacilityRecord = {
         id: d.id,
         name: d.name,
@@ -114,9 +146,9 @@ export function DestinationScreen({ data, onUpdate, onNext, onBack }: Destinatio
         phone: d.phone ?? "",
         country: "JP",
         zip: d.zip ?? "",
-        province: d.province ?? "",
+        province,
         city: d.city ?? "",
-        address1: d.address1 ?? "",
+        address1,
         address2: "",
         extra: "",
       }
